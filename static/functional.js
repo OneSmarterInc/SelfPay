@@ -112,6 +112,7 @@ function passwordScreen(){
 async function start(){epoch++;results=[];state=defaults();state.member=`${account.tenant} / ${account.name}`;await loadCatalog();const pref=await api('/preferences');state.location=pref.location||'';welcome()}
 $('home').textContent='Welcome';
 $('home').onclick=welcome;
+$('brandHome').onclick=e=>{if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;e.preventDefault();pendingEntry=null;welcome();globalThis.scrollTo?.({top:0,left:0,behavior:'instant'})};
 $('history').onclick=safe(async()=>{if(!account)return loginScreen();await history()});
 $('directory').onclick=safe(async()=>{if(!account)return loginScreen();await loadCatalog();directory()});
 $('profile').onclick=()=>account?profile():loginScreen();

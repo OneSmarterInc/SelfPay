@@ -49,6 +49,23 @@ class HostedTests(unittest.TestCase):
         h=self.instance();h.headers={'content-type':'application/json','content-length':'2'}
         h.rfile=io.BytesIO(b'{}')
         self.assertEqual(h.payload(),{})
+    def test_configured_entrypoint_serves_home(self):
+        import importlib
+        import json
+        from pathlib import Path
+        root=Path(__file__).parent
+        declaration=(root/'pyproject.toml').read_text()
+        self.assertIn('entrypoint = "api.index:handler"',declaration)
+        self.assertNotIn('rewrites',json.loads((root/'vercel.json').read_text()))
+        module=importlib.import_module('api.index')
+        self.assertFalse(hasattr(module,'Handler'))
+        h=self.instance();h.path='/'
+        h.headers={'host':'review.vercel.app'}
+        statuses=[];h.send_response=statuses.append
+        with patch.dict(os.environ,{'VERCEL_URL':'review.vercel.app','DATABASE_URL':'postgresql://synthetic.invalid/demo'}):
+            h.do_GET()
+        self.assertEqual(statuses,[200])
+        self.assertIn(b'MySelfPay',h.wfile.getvalue())
     def test_database_fails_closed(self):
         with patch.dict(os.environ,{'DATABASE_URL':''}):
             with self.assertRaises(RuntimeError):self.instance().database_path()

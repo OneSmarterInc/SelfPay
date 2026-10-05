@@ -7,9 +7,9 @@ import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import core
-from server import Handler
+import server
 
-class handler(Handler):
+class handler(server.Handler):
     def database_path(self):
         url=os.environ.get('DATABASE_URL','')
         if not url.startswith(('postgres://','postgresql://')):

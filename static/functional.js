@@ -1,6 +1,6 @@
 const cityLabels=['Cincinnati, OH','Louisville, KY','Lexington, KY','Philadelphia, PA','Boise, ID','Lawrenceville, GA','Auburn, WA','Spanish Fork, UT','South Burlington, VT','Wisconsin','National'];
 /* Shared server-backed search and account-scoped persistence. No browser storage. */
-let csrf='',account=null,currentVersion='',busy=false,saveQueue=Promise.resolve(),epoch=0;
+let csrf='',account=null,currentVersion='',busy=false,saveQueue=Promise.resolve(),epoch=0,catalogReady=false;
 const defaults=()=>({mod:'',body:'',contrast:'unknown',location:'',budget:0,type:'all',mode:'classic',selected:[],private:false,messages:[],member:'',savedId:null,sort:'price'});
 async function api(path,data,method){
   const options={method:method||(data?'POST':'GET'),credentials:'same-origin',headers:{}};
@@ -11,15 +11,17 @@ async function api(path,data,method){
   return body;
 }
 function safe(fn){return (...args)=>Promise.resolve().then(()=>fn(...args)).catch(e=>toast(e.message))}
-async function loadCatalog(){const data=await api('/catalog');DIRECTORY=data.entries;offers=data.offers;currentVersion=data.version}
+async function loadCatalog(){catalogReady=false;const data=await api('/catalog');if(!Array.isArray(data.entries)||!Array.isArray(data.offers)||!data.version)throw new Error('Provider directory is not published yet. Contact the review administrator.');DIRECTORY=data.entries;offers=data.offers;currentVersion=data.version;catalogReady=true}
+function loadFailure(error){$('app').innerHTML=`<section class="panel"><h1>Unable to load your review session</h1><p role="alert">${esc(error.message)}</p><p>Your search history has not been deleted. Retry to load the provider directory from the database.</p><button id="retrySession" class="primary">Retry loading</button></section>`;$('retrySession').onclick=()=>start().catch(loadFailure)}
+
 async function loadResults(){const started=epoch;const data=await api('/search',state);if(started!==epoch)return null;results=data.offers;state.locationSuggestions=data.location_suggestions||[];state.dirty=false;currentVersion=data.version;Object.assign(state,data.search);const byId=new Map(offers.map(o=>[o.id,o]));results.forEach(o=>byId.set(o.id,o));offers=[...byId.values()];return data}
-async function search(){state.searched=!!(state.mod&&state.body.trim()&&state.location.trim());if(!state.searched){results=[];state.detailsOpen=true;render();$('searchNotice').textContent=!state.location?'Enter your city or state to continue.':'Choose an exam and body part to see prices.';return}if(!await loadResults())return;await save();render()}
+async function search(){state.searched=!!(state.mod&&state.body.trim()&&state.location.trim());if(!state.searched){results=[];state.detailsOpen=true;render();$('searchNotice').textContent=!state.location?'Enter your city or state to continue.':'Choose an exam and body part to see prices.';return}if(!await loadResults())return;try{await save()}finally{render()}}
 function save(){
   if(state.private||(!state.messages.length&&!state.searched)||!account)return Promise.resolve();
-  const started=epoch;const id=state.savedId||crypto.randomUUID();state.savedId=id;
+  state.saveStatus='saving';const started=epoch;const id=state.savedId||crypto.randomUUID();state.savedId=id;
   const payload=JSON.parse(JSON.stringify({id,private:false,messages:state.messages,search:state}));
   saveQueue=saveQueue.catch(()=>{}).then(async()=>{if(started!==epoch)return;await api('/conversations',payload)});
-  return saveQueue.catch(e=>{toast('Conversation not saved: '+e.message);throw e});
+  return saveQueue.then(()=>{if(started===epoch)state.saveStatus='saved'}).catch(e=>{if(started===epoch)state.saveStatus='failed';toast('Conversation not saved: '+e.message);throw e});
 }
 const originalBind=bind;
 bind=function(){
@@ -41,7 +43,9 @@ bind=function(){
     toast(isPrivate?'Private mode: fresh search, no saved preferences or history.':'New normal session. Private content discarded.');
   });
   $('remember').onclick=safe(async()=>{if(state.private)return toast('Preferences are not saved in private mode.');readFields();await api('/preferences',{location:state.location});toast('Location saved to this synthetic account.')});
-  document.querySelectorAll('[data-select]').forEach(b=>b.onchange=safe(async()=>{if(b.checked&&state.selected.length>=3){b.checked=false;return toast('Compare up to three options.')}state.selected=b.checked?[...state.selected,b.dataset.select]:state.selected.filter(x=>x!==b.dataset.select);await save();render()}));
+  document.querySelectorAll('[data-select]').forEach(b=>b.onchange=safe(async()=>{if(b.checked&&state.selected.length>=3){b.checked=false;return toast('Compare up to three options.')}state.selected=b.checked?[...state.selected,b.dataset.select]:state.selected.filter(x=>x!==b.dataset.select);try{await save()}finally{render()}}));
+  if($('sampleSearch'))$('sampleSearch').onclick=safe(async()=>{Object.assign(state,{mod:'MRI',body:'Knee',contrast:'without',location:'Cincinnati, OH',budget:500,type:'all'});await search()});
+  if($('browseDirectory'))$('browseDirectory').onclick=safe(async()=>{await loadCatalog();directory()});
   if($('widen'))$('widen').onclick=safe(async()=>{state.location='National';await search()});
   if($('chatForm')){
     $('chatForm').onsubmit=e=>{e.preventDefault();safe(async()=>{readFields();await talk($('message').value)})()};
@@ -56,7 +60,7 @@ async function talk(text){
     state.messages.push({role:'user',text},{role:'assistant',text:data.reply});
     Object.assign(state,data.search);state.searched=!!(state.mod&&state.body.trim()&&state.location.trim());results=data.offers;state.locationSuggestions=data.location_suggestions||[];state.dirty=false;currentVersion=data.version;
     const byId=new Map(offers.map(o=>[o.id,o]));results.forEach(o=>byId.set(o.id,o));offers=[...byId.values()];
-    await save();render();
+    try{await save()}finally{render()};
   }finally{busy=false}
 }
 function voice(){modal('<h2>Voice conversation preview</h2><p>No microphone or speech service is connected. This editable sample transcript uses the same server search.</p><div class="field"><label for="transcript">Review sample transcript</label><textarea id="transcript">Find a self-pay knee MRI near Cincinnati under $500</textarea></div><button id="useTranscript" class="primary">Use transcript</button>');$('useTranscript').onclick=safe(async()=>{const t=$('transcript').value;$('modal').close();await talk(t)})}
@@ -71,7 +75,7 @@ async function history(){
 }
 function report(o){
   if(state.private)return toast('Exit private mode before submitting a saved correction report.');
-  modal(`<h2>Report incorrect information</h2><p>${esc(o.entry.name)}</p><form id="reportForm">${control('reportType','What needs review?','<select id="reportType"><option>Price</option><option>Contact details</option><option>Eligibility or restrictions</option><option>Other</option></select>')}${control('reportText','Describe the issue using synthetic information','<textarea id="reportText" required maxlength="1000"></textarea>')}<button class="primary">Save correction report</button></form><p class="small muted">Saved locally for reviewer inspection. No facility is contacted and no listing changes automatically.</p>`);
+  modal(`<h2>Report incorrect information</h2><p>${esc(o.entry.name)}</p><form id="reportForm">${control('reportType','What needs review?','<select id="reportType"><option>Price</option><option>Contact details</option><option>Eligibility or restrictions</option><option>Other</option></select>')}${control('reportText','Describe the issue using synthetic information','<textarea id="reportText" required maxlength="1000"></textarea>')}<button class="primary">Save correction report</button></form><p class="small muted">Saved in the database for reviewer inspection. No facility is contacted and no listing changes automatically.</p>`);
   $('reportForm').onsubmit=e=>{e.preventDefault();safe(async()=>{await api('/corrections',{offer_id:o.id,category:$('reportType').value,description:$('reportText').value});$('modal').close();toast('Correction saved as pending review. Listing unchanged.')})()};
 }
 function profile(){modal(`<h2>Synthetic account</h2><p>${esc(account.name)} · ${esc(account.tenant)}<br>${esc(account.email)}</p><p>Switching accounts requires signing in. Server checks protect each account’s history. All accounts are demonstration identities.</p><button id="logout">Sign out</button>`);$('logout').onclick=safe(async()=>{await saveQueue.catch(()=>{});await api('/logout',{});epoch++;account=null;csrf='';state=defaults();results=[];offers=[];DIRECTORY=[];$('modal').close();welcome()})}
@@ -86,12 +90,13 @@ function welcome(){
 }
 async function enterJourney(kind){
   if(!account){pendingEntry=kind;loginScreen();return}
+  if(!catalogReady){try{await start()}catch(e){loadFailure(e);return}}
   state.mode=kind==='agent'?'agent':'classic';render();
   if(kind==='scan')scan();else if(kind==='explore')explore();
 }
 function loginScreen(){
   $('app').innerHTML=`<section class="panel" style="max-width:570px;margin:50px auto"><div class="eyebrow">FUNCTIONAL POC</div><h1>Welcome to MySelfPay</h1><p>Sign in with a synthetic account to explore imaging and save your conversation.</p><form id="loginForm">${control('email','Synthetic account',`<select id="email">${['alex.a@example.test','sam.a@example.test','alex.b@example.test','jordan.b@example.test'].map(e=>`<option>${e}</option>`).join('')}</select>`)}${control('password','Demo password','<input id="password" type="password" autocomplete="current-password" value="DemoOnly-2026!" required>')}<button class="primary">Sign in</button></form><p class="small muted">Demo password: DemoOnly-2026!<br>Local use only. Do not enter real member or health information. Voice and order extraction remain simulated.</p></section>`;
-  $('loginForm').onsubmit=e=>{e.preventDefault();safe(async()=>{const r=await api('/login',{email:$('email').value,password:$('password').value});csrf=r.csrf;account=r.member;const next=pendingEntry;pendingEntry=null;await start();if(next)await enterJourney(next)})()};
+  $('loginForm').onsubmit=e=>{e.preventDefault();safe(async()=>{const r=await api('/login',{email:$('email').value,password:$('password').value});csrf=r.csrf;account=r.member;const next=pendingEntry;pendingEntry=null;try{await start()}catch(e){loadFailure(e);return}if(next)await enterJourney(next)})()};
 }
 async function start(){epoch++;results=[];state=defaults();state.member=`${account.tenant} / ${account.name}`;await loadCatalog();const pref=await api('/preferences');state.location=pref.location||'';welcome()}
 $('home').textContent='Welcome';
@@ -99,4 +104,4 @@ $('home').onclick=welcome;
 $('history').onclick=safe(async()=>{if(!account)return loginScreen();await history()});
 $('directory').onclick=safe(async()=>{if(!account)return loginScreen();await loadCatalog();directory()});
 $('profile').onclick=()=>account?profile():loginScreen();
-const bootReady=(async()=>{try{const r=await api('/me');account=r.member;csrf=r.csrf;await start()}catch{welcome()}})();
+const bootReady=(async()=>{try{const r=await api('/me');account=r.member;csrf=r.csrf;await start()}catch(e){if(account)loadFailure(e);else welcome()}})();

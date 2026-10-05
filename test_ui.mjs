@@ -2,10 +2,11 @@
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
 const entries=JSON.parse(fs.readFileSync('seed/directory.json','utf8'));
 const offers=JSON.parse(fs.readFileSync('seed/mappings.json','utf8')).map(o=>({...o,entry:entries.find(e=>e.name===o.entry_name),version:'test-version'}));
-let signedIn=false,conversations=[];
+let signedIn=false,conversations=[],failSave=false,failCatalog=false;
 const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',innerHTML:'',textContent:'',classList:{add(){},remove(){}},showModal(){},close(){},checked:false});return nodes.get(id)};
 const fetch=async(url,options={})=>{
   let status=200,body={};const input=JSON.parse(options.body||'{}');
+  if((failSave&&url==='/api/conversations'&&options.method==='POST')||(failCatalog&&url==='/api/catalog'))return {ok:false,status:503,json:async()=>({error:'Synthetic service failure'})};
   if(url==='/api/login'){signedIn=true;body={csrf:'demo-test',member:{id:'a',tenant:'plan-a',name:'Alex',email:'alex.a@example.test'}}}
   else if(!signedIn){status=401;body={error:'Sign in'}}
   else if(url==='/api/catalog')body={entries,offers,version:'test-version'};
@@ -66,7 +67,21 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   assert.match(node('modal').innerHTML,/comparison-table/);
   vm.runInContext('request(offers[0])',ctx);node('simulateRequest').onclick();
   assert.match(node('requestStatus').innerHTML,/Sent \(simulated\)/);
+  assert.match(vm.runInContext('initialSearch()',ctx),/Directory loaded: 44 researched entries/);
+  assert.match(vm.runInContext('initialSearch()',ctx),/Try sample: knee MRI/);
+  failSave=true;
+  await vm.runInContext("(async()=>{state=defaults();state.mod='MRI';state.body='Knee';state.contrast='without';state.location='Cincinnati';state.mode='agent';try{await talk('MRI without contrast')}catch{}})()",ctx);
+  assert.equal(vm.runInContext('state.saveStatus',ctx),'failed');
+  assert.match(node('app').innerHTML,/Conversation not saved/);
+  assert.match(node('app').innerHTML,/2 reviewed offers/);
+  failSave=false;failCatalog=true;
+  await vm.runInContext('start().catch(loadFailure)',ctx);
+  assert.match(node('app').innerHTML,/Unable to load your review session/);
+  assert.match(node('app').innerHTML,/Retry loading/);
+  failCatalog=false;
+  await vm.runInContext('start()',ctx);
+  assert.match(node('app').innerHTML,/How would you like to begin/);
   await vm.runInContext('api("/logout",{})',ctx);
   const rejected=await vm.runInContext('api("/catalog").then(()=>false).catch(()=>true)',ctx);assert.equal(rejected,true);
-  console.log('24 client workflow checks passed with stub transport. No browser visual QA.');
+  console.log('Client workflow checks, including save and catalog failure recovery, passed with stub transport. No browser visual QA.');
 }

@@ -48,7 +48,7 @@ class Handler(BaseHTTPRequestHandler):
         if len(self.server.login_attempts)>=20:return False
         self.server.login_attempts.append(now)
         return True
-    def handle_request(self,method):
+    def route_selfpay_request(self,method):
         if not self.validate_origin():return self.respond(403,{'error':'Origin or host rejected'})
         path=urlparse(self.path).path;db=self.database_path()
         if method=='GET' and path in ('/','/app.js','/functional.js'):
@@ -98,7 +98,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(201,{'id':ident,'status':'pending review'})
         return self.respond(404,{'error':'Not found'})
     def dispatch(self,method):
-        try:self.handle_request(method)
+        try:self.route_selfpay_request(method)
         except PermissionError:self.respond(404,{'error':'Record unavailable'})
         except (ValueError,TypeError,KeyError,AttributeError) as exc:self.respond(400,{'error':str(exc)})
         except Exception:self.respond(500,{'error':'Request failed. Your input has not been discarded; retry or restart the local app.'})

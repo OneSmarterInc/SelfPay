@@ -11,6 +11,17 @@ class HostedTests(unittest.TestCase):
         h.send_response=lambda status:None;h.end_headers=lambda:None
         h.sent={};h.send_header=lambda k,v:h.sent.update({k:v})
         return h
+    def test_runtime_handle_request_does_not_shadow_app_router(self):
+        # Vercel wraps the handler with its own zero-argument handle_request.
+        class RuntimeHandler(handler):
+            def handle_request(self):
+                raise AssertionError('Application must not call runtime handle_request')
+        h=object.__new__(RuntimeHandler)
+        from unittest.mock import Mock
+        h.route_selfpay_request=Mock()
+        h.do_GET();h.do_POST();h.do_DELETE()
+        self.assertEqual([c.args for c in h.route_selfpay_request.call_args_list],
+                         [('GET',),('POST',),('DELETE',)])
     def test_host_and_https_origin(self):
         h=self.instance()
         with patch.dict(os.environ,{'VERCEL_URL':'review.vercel.app','APP_HOSTS':'','VERCEL_PROJECT_PRODUCTION_URL':''}):

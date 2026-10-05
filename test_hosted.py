@@ -29,6 +29,26 @@ class HostedTests(unittest.TestCase):
             self.assertTrue(h.validate_origin())
             h.headers['Origin']='https://attacker.example';self.assertFalse(h.validate_origin())
             h.headers={'Host':'attacker.example'};self.assertFalse(h.validate_origin())
+    def test_lowercase_proxy_headers(self):
+        h=self.instance()
+        with patch.dict(os.environ,{'VERCEL_URL':'review.vercel.app','APP_HOSTS':'','VERCEL_BRANCH_URL':'branch.vercel.app'}):
+            h.headers={'host':'127.0.0.1:3000','x-forwarded-host':'review.vercel.app',
+                       'origin':'https://review.vercel.app','cookie':'selfpay_session=test'}
+            self.assertTrue(h.validate_origin())
+            self.assertEqual(h.token(),'test')
+            h.headers['origin']='https://attacker.example'
+            self.assertFalse(h.validate_origin())
+            h.headers.pop('origin')
+            h.headers['x-forwarded-host']='attacker.example'
+            self.assertFalse(h.validate_origin())
+            h.headers['x-forwarded-host']='review.vercel.app,attacker.example'
+            self.assertFalse(h.validate_origin())
+            h.headers={'host':'branch.vercel.app'}
+            self.assertTrue(h.validate_origin())
+    def test_lowercase_json_headers(self):
+        h=self.instance();h.headers={'content-type':'application/json','content-length':'2'}
+        h.rfile=io.BytesIO(b'{}')
+        self.assertEqual(h.payload(),{})
     def test_database_fails_closed(self):
         with patch.dict(os.environ,{'DATABASE_URL':''}):
             with self.assertRaises(RuntimeError):self.instance().database_path()

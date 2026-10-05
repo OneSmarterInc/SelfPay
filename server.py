@@ -24,22 +24,26 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         if cookie:self.send_header('Set-Cookie',cookie)
         self.end_headers();self.wfile.write(body)
+    def request_header(self,name,default=None):
+        # Runtime adapters may supply a plain dict instead of HTTPMessage.
+        return next((value for key,value in self.headers.items()
+                     if key.casefold()==name.casefold()),default)
     def token(self):
         jar=SimpleCookie()
-        try:jar.load(self.headers.get('Cookie',''));return jar['selfpay_session'].value if 'selfpay_session' in jar else ''
+        try:jar.load(self.request_header('Cookie',''));return jar['selfpay_session'].value if 'selfpay_session' in jar else ''
         except Exception:return ''
     def payload(self):
-        if not self.headers.get('Content-Type','').startswith('application/json'):raise ValueError('JSON required')
-        size=int(self.headers.get('Content-Length','0'))
+        if not self.request_header('Content-Type','').startswith('application/json'):raise ValueError('JSON required')
+        size=int(self.request_header('Content-Length','0'))
         if not 0<size<=100000:raise ValueError('Request size must be 1–100000 bytes')
         value=json.loads(self.rfile.read(size))
         if not isinstance(value,dict):raise ValueError('JSON object required')
         return value
     def validate_origin(self):
-        host=self.headers.get('Host','')
+        host=self.request_header('Host','')
         allowed={f'127.0.0.1:{self.server.server_port}',f'localhost:{self.server.server_port}'}
         if host not in allowed:return False
-        origin=self.headers.get('Origin')
+        origin=self.request_header('Origin')
         return not origin or origin==f'http://{host}'
     def database_path(self):return self.server.db_path
     def login_allowed(self,email):
@@ -64,7 +68,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(200,result,cookie=f'selfpay_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800')
         member=core.session(self.token(),db)
         if not member:return self.respond(401,{'error':'Sign in to a synthetic account'})
-        if method!='GET' and not secrets.compare_digest(self.headers.get('X-CSRF-Token',''),member['csrf']):
+        if method!='GET' and not secrets.compare_digest(self.request_header('X-CSRF-Token',''),member['csrf']):
             return self.respond(403,{'error':'CSRF token required'})
         if path=='/api/me' and method=='GET':return self.respond(200,{'member':{k:v for k,v in member.items() if k!='csrf'},'csrf':member['csrf']})
         if path=='/api/logout' and method=='POST':

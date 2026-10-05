@@ -20,7 +20,7 @@ Use a NEW dedicated review database, not another app's database. Keep Vercel's e
 2. Run `npm install -g vercel`, then `vercel login`.
 3. Run `vercel link`. Select the **1smarterinc's projects** team and create a new project named **myselfpay-review**. Use the current directory, framework Other, no custom build command.
 4. The dedicated Neon database **myselfpay-review** has already been created in **1smarterinc's projects**, on the Free plan in Washington DC. Do not create another database. In Vercel Storage, open this database, choose **Connect to Project**, select the new **myselfpay-review** app project, and include **Preview**. Ensure DATABASE_URL is available for Preview. The database is not yet initialized.
-5. Add a unique REVIEW_PASSWORD (at least 16 characters) with `vercel env add REVIEW_PASSWORD preview`. Do not use the old public demo password. This is one review password for four synthetic identities, not production account enrollment.
+5. Add a unique REVIEW_PASSWORD (at least 8 characters) with `vercel env add REVIEW_PASSWORD preview`. Do not use the old public demo password. This is one review password for four synthetic identities, not production account enrollment.
 6. Run `vercel env pull .env.local --environment=preview` to get the configuration locally. Keep this file private.
 7. Install dependencies: `py -3 -m pip install -r requirements.txt python-dotenv`.
 8. Initialize from the environment file:
@@ -60,3 +60,9 @@ Conversations expire after 90 days and are purged when history is accessed. Priv
 The deterministic agent remains a limited demo. Hosting does not upgrade its clinical or language capabilities. Full production authentication, per-reviewer provisioning, distributed abuse controls beyond per-account login limits, scheduled retention cleanup, and monitoring are separate work.
 
 To roll back code, redeploy a prior package. This version adds tables only; do not delete or restore a database as part of code rollback. To end the review, revoke sharing in Vercel and pause/remove the dedicated review deployment when authorized.
+
+## Personal review accounts
+
+The sign-in screen supports creating an account using a name, email and password (8–200 characters). Credentials are stored as salted PBKDF2 hashes in the configured database. Registration assigns the server-controlled `review` organization; clients cannot select a health-plan tenant. Existing demo accounts remain available. My account → Change password requires the current password and CSRF token, and invalidates all sessions for that member. No database migration is required.
+
+Email ownership verification and self-service forgotten-password recovery are not connected. These are personal review accounts, not verified health-plan identities. Continue using synthetic search scenarios and no real medical documents. The REVIEW_PASSWORD environment variable seeds demo accounts only; it is not the password for newly registered accounts and changing it does not reset existing accounts.

@@ -7,7 +7,8 @@ const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',i
 const fetch=async(url,options={})=>{
   let status=200,body={};const input=JSON.parse(options.body||'{}');
   if((failSave&&url==='/api/conversations'&&options.method==='POST')||(failCatalog&&url==='/api/catalog'))return {ok:false,status:503,json:async()=>({error:'Synthetic service failure'})};
-  if(url==='/api/login'){signedIn=true;body={csrf:'demo-test',member:{id:'a',tenant:'plan-a',name:'Alex',email:'alex.a@example.test'}}}
+  if(url==='/api/register'){body={ok:true}}
+  else if(url==='/api/login'){signedIn=true;body={csrf:'demo-test',member:{id:'a',tenant:'plan-a',name:'Alex',email:'alex.a@example.test'}}}
   else if(!signedIn){status=401;body={error:'Sign in'}}
   else if(url==='/api/catalog')body={entries,offers,version:'test-version'};
   else if(url==='/api/preferences')body={};
@@ -83,5 +84,16 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   assert.match(node('app').innerHTML,/How would you like to begin/);
   await vm.runInContext('api("/logout",{})',ctx);
   const rejected=await vm.runInContext('api("/catalog").then(()=>false).catch(()=>true)',ctx);assert.equal(rejected,true);
+  vm.runInContext('loginScreen(true)',ctx);
+  assert.match(node('app').innerHTML,/Create your account/);
+  assert.match(node('app').innerHTML,/minlength="8"/);
+  node('email').value='new@example.test';node('accountName').value='New reviewer';
+  node('password').value='Eight123';node('confirmPassword').value='different';
+  await node('loginForm').onsubmit({preventDefault(){}});
+  assert.equal(node('authError').textContent,'Passwords do not match');
+  node('confirmPassword').value='Eight123';
+  await node('loginForm').onsubmit({preventDefault(){}});
+  assert.match(node('authError').textContent,/Account created/);
+  assert.match(node('app').innerHTML,/Sign in to MySelfPay/);
   console.log('Client workflow checks, including save and catalog failure recovery, passed with stub transport. No browser visual QA.');
 }

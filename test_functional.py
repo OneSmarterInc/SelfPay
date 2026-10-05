@@ -171,4 +171,41 @@ class FunctionalTests(unittest.TestCase):
         s={**self.payload()['search'],'location':'Boise','budget':600}
         r=core.search(s,self.db);self.assertEqual(r['offers'][0]['contrast'],'unknown');self.assertEqual(r['offers'][0]['budget_status'],'Budget fit unconfirmed')
 
+    def test_28_register_login_and_organization_isolation(self):
+        self.http.login_attempts=[]
+        data={'name':'Reviewer','email':'New.Reviewer@Example.test','password':'Eight123','tenant':'plan-a'}
+        self.assertEqual(self.req('/api/register',data)[0],201)
+        self.assertEqual(self.req('/api/register',data)[0],400)
+        status,r,h=self.req('/api/login',{'email':' NEW.REVIEWER@example.test ','password':'Eight123'})
+        self.assertEqual(status,200);self.assertEqual(r['member']['tenant'],'review')
+        a={'cookie':h['Set-Cookie'].split(';')[0],'csrf':r['csrf'],'member':r['member']}
+        status,saved,_=self.req('/api/conversations',self.payload(),auth=a)
+        self.assertEqual(status,200)
+        other=self.sign_in()
+        self.assertNotIn(saved['id'],[c['id'] for c in self.req('/api/conversations',auth=other)[1]['conversations']])
+        self.assertEqual(self.req('/api/conversations/'+saved['id'],method='DELETE',auth=other)[0],404)
+
+    def test_29_registration_validation(self):
+        self.http.login_attempts=[]
+        for changes in [{'password':'1234567'},{'password':'a'*201},{'email':'invalid'},{'name':''}]:
+            data={'name':'Test','email':'validation@example.test','password':'Eight123',**changes}
+            self.assertEqual(self.req('/api/register',data)[0],400)
+        self.assertEqual(self.req('/api/register',{'name':'Test','email':'origin@example.test','password':'Eight123'},headers={'Origin':'https://evil.example'})[0],403)
+
+    def test_30_change_password_revokes_sessions(self):
+        self.http.login_attempts=[]
+        self.req('/api/register',{'name':'Password test','email':'password@example.test','password':'Eight123'})
+        def auth():
+            status,r,h=self.req('/api/login',{'email':'password@example.test','password':'Eight123'})
+            self.assertEqual(status,200)
+            return {'cookie':h['Set-Cookie'].split(';')[0],'csrf':r['csrf'],'member':r['member']}
+        a=auth();b=auth()
+        self.assertEqual(self.req('/api/password',{'current_password':'Eight123','new_password':'New12345'},auth=a,headers={'X-CSRF-Token':''})[0],403)
+        self.assertEqual(self.req('/api/password',{'current_password':'wrong','new_password':'New12345'},auth=a)[0],400)
+        self.assertEqual(self.req('/api/password',{'current_password':'Eight123','new_password':'New12345'},auth=a)[0],200)
+        self.assertEqual(self.req('/api/me',auth=a)[0],401)
+        self.assertEqual(self.req('/api/me',auth=b)[0],401)
+        self.assertEqual(self.req('/api/login',{'email':'password@example.test','password':'Eight123'})[0],401)
+        self.assertEqual(self.req('/api/login',{'email':'password@example.test','password':'New12345'})[0],200)
+
 if __name__=='__main__':unittest.main(verbosity=2)

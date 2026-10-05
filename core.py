@@ -251,7 +251,45 @@ def agent(message,raw,path=DB):
         reply+=' Some listings have unconfirmed contrast or protocol. A published amount below your budget does not confirm that it covers your requested exam or all fees; ask the facility for the exact total.'
     return {'reply':reply,**result,'agent_mode':'deterministic-demo'}
 
+def normalize_email(email):
+    import re
+    if not isinstance(email,str):raise ValueError('Enter a valid email address')
+    email=email.strip().casefold()
+    if len(email)>200 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email):
+        raise ValueError('Enter a valid email address')
+    return email
+
+def password_fields(password):
+    if not isinstance(password,str) or not 8<=len(password)<=200:
+        raise ValueError('Use a password between 8 and 200 characters')
+    salt=secrets.token_hex(16)
+    hashed=hashlib.pbkdf2_hmac('sha256',password.encode(),bytes.fromhex(salt),200000).hex()
+    return salt,hashed
+
+def register(name,email,password,path=DB):
+    email=normalize_email(email)
+    if not isinstance(name,str) or not 1<=len(name.strip())<=80:raise ValueError('Enter a name of 1–80 characters')
+    salt,hashed=password_fields(password)
+    with connect(path) as db:
+        created=db.execute('INSERT INTO members VALUES(?,?,?,?,?,?) ON CONFLICT(email) DO NOTHING',
+            (str(uuid.uuid4()),'review',email,name.strip(),salt,hashed)).rowcount
+        if not created:raise ValueError('Unable to create this account. If you already registered, sign in.')
+    return {'ok':True}
+
+def change_password(member,current_password,new_password,path=DB):
+    if not isinstance(current_password,str) or len(current_password)>200:raise ValueError('Current password is incorrect')
+    salt,hashed=password_fields(new_password)
+    with connect(path) as db:
+        row=db.execute('SELECT salt,password_hash FROM members WHERE id=? AND tenant=?',(member['id'],member['tenant'])).fetchone()
+        candidate=hashlib.pbkdf2_hmac('sha256',current_password.encode(),bytes.fromhex(row['salt']),200000).hex() if row else ''
+        if not row or not hmac.compare_digest(candidate,row['password_hash']):raise ValueError('Current password is incorrect')
+        db.execute('UPDATE members SET salt=?,password_hash=? WHERE id=? AND tenant=?',(salt,hashed,member['id'],member['tenant']))
+        db.execute('DELETE FROM sessions WHERE member_id=?',(member['id'],))
+    return {'ok':True}
+
 def login(email,password,path=DB):
+    email=normalize_email(email)
+    if not isinstance(password,str) or len(password)>200:return None
     with connect(path) as db:
         row=db.execute('SELECT * FROM members WHERE email=?',(email,)).fetchone()
         salt=bytes.fromhex(row['salt']) if row else bytes(16)

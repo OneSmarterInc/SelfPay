@@ -1,6 +1,7 @@
 """Vercel entry point. No local database fallback and no public setup endpoint."""
 import os
 import hashlib
+import json
 import time
 import sys
 from pathlib import Path
@@ -19,7 +20,16 @@ class handler(Handler):
         allowed=set(filter(None,[os.environ.get('VERCEL_URL'),os.environ.get('VERCEL_PROJECT_PRODUCTION_URL'),os.environ.get('VERCEL_BRANCH_URL')]))
         allowed.update(x.strip() for x in os.environ.get('APP_HOSTS','').split(',') if x.strip())
         origin=self.request_header('Origin')
-        return host in allowed and (not origin or origin=='https://'+host)
+        valid=host in allowed and (not origin or origin=='https://'+host)
+        if not valid:
+            print('SELFPAY_HOST_CHECK '+json.dumps({
+                'host':str(self.request_header('Host',''))[:200],
+                'forwarded_host':str(self.request_header('X-Forwarded-Host',''))[:200],
+                'allowed_hosts':sorted(allowed),
+                'origin_present':origin is not None,
+                'origin_matches_host':origin=='https://'+host,
+            }),flush=True)
+        return valid
     def respond(self,status,data,cookie=None,content_type='application/json'):
         if cookie:cookie+='; Secure'
         if content_type!='application/json':

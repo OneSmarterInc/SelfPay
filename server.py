@@ -68,8 +68,8 @@ class Handler(BaseHTTPRequestHandler):
     def route_selfpay_request(self,method):
         if not self.validate_origin():return self.respond(403,{'error':'Origin or host rejected'})
         path=urlparse(self.path).path;db=self.database_path()
-        if method=='GET' and path in ('/','/app.js','/functional.js'):
-            name={'/':'index.html','/app.js':'app.js','/functional.js':'functional.js'}[path]
+        if method=='GET' and path in ('/','/app.js'):
+            name={'/':'index.html','/app.js':'app.js'}[path]
             return self.respond(200,(core.ROOT/'static'/name).read_bytes(),content_type='text/html' if path=='/' else 'text/javascript')
         if path in ('/api/register','/api/login','/api/password'):
             return self.respond(410,{'error':'Use Sign in as guest. Email and password sign-in is disabled.'})

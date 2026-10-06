@@ -72,6 +72,14 @@ class PostgresIntegration(unittest.TestCase):
             results = [h.login_allowed('pg-limit-test', 3) for _ in range(5)]
         self.assertEqual(results, [True, True, True, False, False])
 
+    def test_retention_cleanup(self):
+        from cleanup import cleanup
+        core=self.core;a=core.guest_login(URL)
+        with core.connect(URL) as db:db.execute('UPDATE sessions SET expires=0 WHERE member_id=?',(a['member']['id'],))
+        self.assertGreaterEqual(cleanup(URL)['eligible_records']['sessions'],1)
+        cleanup(URL,apply=True)
+        self.assertIsNone(core.session(a['token'],URL))
+
     def test_failed_transaction_rolls_back(self):
         core = self.core
         with self.assertRaises(RuntimeError):

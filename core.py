@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent
 DB = os.environ.get('DATABASE_URL') or ROOT / 'data' / 'myselfpay.sqlite3'
-DEMO_PASSWORD = os.environ.get('REVIEW_PASSWORD', 'DemoOnly-2026!')
+DEMO_PASSWORD = os.environ.get('REVIEW_PASSWORD')
 ACCOUNTS = [('alex.a@example.test','plan-a','Alex'), ('sam.a@example.test','plan-a','Sam'),
             ('alex.b@example.test','plan-b','Alex'), ('jordan.b@example.test','plan-b','Jordan')]
 
@@ -78,7 +78,7 @@ def initialize(path=DB):
             category TEXT NOT NULL, description TEXT NOT NULL, created REAL NOT NULL, status TEXT NOT NULL);
         ''')
         db.execute('PRAGMA secure_delete=ON')
-        for email, tenant, name in ACCOUNTS:
+        for email, tenant, name in (ACCOUNTS if DEMO_PASSWORD else []):
             if db.execute('SELECT 1 FROM members WHERE email=?', (email,)).fetchone(): continue
             salt = secrets.token_hex(16)
             pw = hash_password(DEMO_PASSWORD, salt)
@@ -328,15 +328,13 @@ def login(email,password,path=DB):
 
 def session(token,path=DB):
     with connect(path) as db:
-        db.execute('DELETE FROM sessions WHERE expires<=?',(time.time(),))
-        row=db.execute('SELECT m.id,m.tenant,m.name,m.email,s.csrf FROM sessions s JOIN members m ON m.id=s.member_id WHERE s.token_hash=?',(hashlib.sha256(token.encode()).hexdigest(),)).fetchone()
+        row=db.execute('SELECT m.id,m.tenant,m.name,m.email,s.csrf FROM sessions s JOIN members m ON m.id=s.member_id WHERE s.token_hash=? AND s.expires>?',(hashlib.sha256(token.encode()).hexdigest(),time.time())).fetchone()
         return dict(row) if row else None
 
 def history(member,path=DB):
     with connect(path) as db:
         db.execute('PRAGMA secure_delete=ON')
-        db.execute('DELETE FROM conversations WHERE expires<=?',(time.time(),))
-        return [{'id':r['id'],'title':r['title'],'updated':r['updated']*1000,'expires':r['expires']*1000,**json.loads(r['payload'])} for r in db.execute('SELECT * FROM conversations WHERE tenant=? AND member_id=? ORDER BY updated DESC',(member['tenant'],member['id']))]
+        return [{'id':r['id'],'title':r['title'],'updated':r['updated']*1000,'expires':r['expires']*1000,**json.loads(r['payload'])} for r in db.execute('SELECT * FROM conversations WHERE tenant=? AND member_id=? AND expires>? ORDER BY updated DESC',(member['tenant'],member['id'],time.time()))]
 
 def save_conversation(member,data,path=DB):
     if data.get('private'):raise ValueError('Private conversations cannot be persisted')

@@ -13,7 +13,7 @@ uploads, external AI, booking, payment, or facility delivery is connected.
 Each guest receives a separate server-owned identity. The eight-hour session cookie
 restores access on refresh. Signing out or losing/expiring the cookie means a new
 guest cannot recover the old history. Signing out does not delete stored history.
-Conversations expire 90 days after their last save and are purged on history access;
+Conversations expire 90 days after their last save and are hidden immediately on expiry;
 provider backup retention is separate. Use synthetic information only.
 
 Email/password HTTP endpoints return 410. Existing member records and the internal
@@ -55,12 +55,12 @@ npx vercel deploy
 Open the new Preview URL. Do not use `--prod` or `vercel promote` for this review.
 Keep DATABASE_URL and all secrets out of GitHub. Preview environment settings must
 point at the dedicated review database. Do not initialize/reset a populated database
-just to deploy UI or security changes. Initial bootstrap is in `setup_hosted.py`.
+just to deploy UI or security changes. Initial bootstrap is in `setup_hosted.py`; no review password is required for guest access.
 
 ## Checks
 
 ```powershell
-py -3 -m unittest test_functional test_hosted -v
+py -3 -m unittest test_functional test_hosted test_cleanup -v
 node test_ui.mjs
 ```
 
@@ -89,3 +89,24 @@ No evidence was freshly reverified as part of this code audit.
 No claims/benefit calculations or insurance-versus-cash promises. OSI does not
 guarantee prices, payment, appointments, or eligibility. Real member rollout still
 needs operational, privacy, retention, abuse-control, and integration review.
+
+## Retention schedule and remaining setup
+
+`cleanup.py` reports counts by default; `--apply` deletes expired conversations,
+sessions and old rate-limit buckets in one transaction. Live records are preserved.
+The daily GitHub Actions schedule (03:17 UTC) runs independently of Vercel Preview.
+Set repository Actions secret `SELFPAY_CLEANUP_DATABASE_URL` to the dedicated review
+database connection string, then manually run **Daily retention cleanup** first with
+apply=false and review counts, then with apply=true. No secret is supplied by this
+commit, so live scheduled cleanup is NOT yet verified. No secret value belongs in code.
+The workflow fails visibly if configuration is missing.
+
+Expired guest identities/preferences and correction reports do not yet have a agreed
+retention policy. This cleanup deliberately does not delete those or existing members.
+Backups have their own retention. Session expiry is enforced by queries regardless
+of whether scheduled deletion has run.
+
+The frontend is one module (`static/app.js`); the overriding `functional.js` and
+obsolete local-memory history implementation have been removed. Existing synthetic
+accounts are only seeded if REVIEW_PASSWORD is explicitly configured; there is no
+hardcoded default. Guest setup needs no credential configuration.

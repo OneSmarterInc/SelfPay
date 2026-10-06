@@ -287,6 +287,16 @@ def change_password(member,current_password,new_password,path=DB):
         db.execute('DELETE FROM sessions WHERE member_id=?',(member['id'],))
     return {'ok':True}
 
+def guest_login(path=DB):
+    """A separate identity per guest session; never reuse a shared demo member."""
+    ident=str(uuid.uuid4());token=secrets.token_urlsafe(32);csrf=secrets.token_urlsafe(24)
+    with connect(path) as db:
+        db.execute('INSERT INTO members VALUES(?,?,?,?,?,?)',
+            (ident,'guest',ident+'@guest.invalid','Guest',secrets.token_hex(16),secrets.token_hex(32)))
+        db.execute('INSERT INTO sessions VALUES(?,?,?,?)',
+            (hashlib.sha256(token.encode()).hexdigest(),ident,csrf,time.time()+8*3600))
+    return {'token':token,'csrf':csrf,'member':{'id':ident,'tenant':'guest','name':'Guest'}}
+
 def login(email,password,path=DB):
     email=normalize_email(email)
     if not isinstance(password,str) or len(password)>200:return None

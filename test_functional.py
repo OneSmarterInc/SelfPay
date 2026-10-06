@@ -41,14 +41,14 @@ class FunctionalTests(unittest.TestCase):
     def sign_in(self,email='alex.a@example.test'):
         # Rate limits are verified separately; tests reset the local counter.
         self.http.login_attempts=[]
-        status,data,h=self.req('/api/login',{'email':email,'password':core.DEMO_PASSWORD})
-        self.assertEqual(status,200);return {'cookie':h['Set-Cookie'].split(';')[0],'csrf':data['csrf'],'member':data['member']}
+        data=core.login(email,core.DEMO_PASSWORD,self.db)
+        return {'cookie':'selfpay_session='+data['token'],'csrf':data['csrf'],'member':data['member']}
     def payload(self):return {'messages':[{'role':'user','text':'Synthetic knee MRI search'}],'search':{'mod':'MRI','body':'Knee','contrast':'without','location':'Cincinnati','budget':500}}
     def test_01_auth_required(self):self.assertEqual(self.req('/api/catalog')[0],401)
-    def test_02_password_failure(self):self.assertEqual(self.req('/api/login',{'email':'alex.a@example.test','password':'wrong'})[0],401)
+    def test_02_password_failure(self):self.assertEqual(self.req('/api/login',{'email':'alex.a@example.test','password':'wrong'})[0],410)
     def test_03_session_cookie_security(self):
         self.http.login_attempts=[]
-        status,r,h=self.req('/api/login',{'email':'alex.a@example.test','password':core.DEMO_PASSWORD})
+        status,r,h=self.req('/api/guest',{})
         self.assertIn('HttpOnly',h['Set-Cookie']);self.assertIn('SameSite=Strict',h['Set-Cookie'])
     def test_04_catalog_and_shared_search(self):
         a=self.sign_in();_,data,_=self.req('/api/catalog',auth=a)
@@ -171,41 +171,38 @@ class FunctionalTests(unittest.TestCase):
         s={**self.payload()['search'],'location':'Boise','budget':600}
         r=core.search(s,self.db);self.assertEqual(r['offers'][0]['contrast'],'unknown');self.assertEqual(r['offers'][0]['budget_status'],'Budget fit unconfirmed')
 
-    def test_28_register_login_and_organization_isolation(self):
+    def guest(self):
         self.http.login_attempts=[]
-        data={'name':'Reviewer','email':'New.Reviewer@Example.test','password':'Eight123','tenant':'plan-a'}
-        self.assertEqual(self.req('/api/register',data)[0],201)
-        self.assertEqual(self.req('/api/register',data)[0],400)
-        status,r,h=self.req('/api/login',{'email':' NEW.REVIEWER@example.test ','password':'Eight123'})
-        self.assertEqual(status,200);self.assertEqual(r['member']['tenant'],'review')
-        a={'cookie':h['Set-Cookie'].split(';')[0],'csrf':r['csrf'],'member':r['member']}
-        status,saved,_=self.req('/api/conversations',self.payload(),auth=a)
+        status,r,h=self.req('/api/guest',{})
         self.assertEqual(status,200)
-        other=self.sign_in()
-        self.assertNotIn(saved['id'],[c['id'] for c in self.req('/api/conversations',auth=other)[1]['conversations']])
-        self.assertEqual(self.req('/api/conversations/'+saved['id'],method='DELETE',auth=other)[0],404)
+        return {'cookie':h['Set-Cookie'].split(';')[0],'csrf':r['csrf'],'member':r['member']}
 
-    def test_29_registration_validation(self):
-        self.http.login_attempts=[]
-        for changes in [{'password':'1234567'},{'password':'a'*201},{'email':'invalid'},{'name':''}]:
-            data={'name':'Test','email':'validation@example.test','password':'Eight123',**changes}
-            self.assertEqual(self.req('/api/register',data)[0],400)
-        self.assertEqual(self.req('/api/register',{'name':'Test','email':'origin@example.test','password':'Eight123'},headers={'Origin':'https://evil.example'})[0],403)
+    def test_28_guest_isolation_and_reuse(self):
+        a=self.guest();b=self.guest()
+        self.assertNotEqual(a['member']['id'],b['member']['id'])
+        self.assertEqual(a['member']['tenant'],'guest')
+        status,r,_=self.req('/api/guest',{'tenant':'plan-a','id':b['member']['id']},auth=a)
+        self.assertEqual(r['member']['id'],a['member']['id'])
+        _,saved,_=self.req('/api/conversations',self.payload(),auth=a)
+        self.assertEqual(self.req('/api/conversations',auth=b)[1]['conversations'],[])
+        self.assertEqual(self.req('/api/conversations/'+saved['id'],method='DELETE',auth=b)[0],404)
+        self.assertEqual(self.req('/api/search',self.payload()['search'],auth=a)[0],200)
+        self.assertEqual(self.req('/api/agent',{'message':'MRI','search':{}},auth=a)[0],200)
 
-    def test_30_change_password_revokes_sessions(self):
+    def test_29_guest_origin_csrf_and_logout(self):
         self.http.login_attempts=[]
-        self.req('/api/register',{'name':'Password test','email':'password@example.test','password':'Eight123'})
-        def auth():
-            status,r,h=self.req('/api/login',{'email':'password@example.test','password':'Eight123'})
-            self.assertEqual(status,200)
-            return {'cookie':h['Set-Cookie'].split(';')[0],'csrf':r['csrf'],'member':r['member']}
-        a=auth();b=auth()
-        self.assertEqual(self.req('/api/password',{'current_password':'Eight123','new_password':'New12345'},auth=a,headers={'X-CSRF-Token':''})[0],403)
-        self.assertEqual(self.req('/api/password',{'current_password':'wrong','new_password':'New12345'},auth=a)[0],400)
-        self.assertEqual(self.req('/api/password',{'current_password':'Eight123','new_password':'New12345'},auth=a)[0],200)
+        self.assertEqual(self.req('/api/guest',{},headers={'Origin':'https://evil.example'})[0],403)
+        a=self.guest()
+        self.assertEqual(self.req('/api/logout',{},auth=a,headers={'X-CSRF-Token':''})[0],403)
+        self.assertEqual(self.req('/api/logout',{},auth=a)[0],200)
+        self.assertEqual(self.req('/api/catalog',auth=a)[0],401)
+        b=self.guest();self.assertNotEqual(a['member']['id'],b['member']['id'])
+
+    def test_30_credentials_disabled_and_guest_expiry(self):
+        for route in ('/api/login','/api/register','/api/password'):
+            self.assertEqual(self.req(route,{})[0],410)
+        a=self.guest()
+        with core.connect(self.db) as db:db.execute('UPDATE sessions SET expires=0 WHERE member_id=?',(a['member']['id'],))
         self.assertEqual(self.req('/api/me',auth=a)[0],401)
-        self.assertEqual(self.req('/api/me',auth=b)[0],401)
-        self.assertEqual(self.req('/api/login',{'email':'password@example.test','password':'Eight123'})[0],401)
-        self.assertEqual(self.req('/api/login',{'email':'password@example.test','password':'New12345'})[0],200)
 
 if __name__=='__main__':unittest.main(verbosity=2)

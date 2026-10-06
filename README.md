@@ -1,3 +1,27 @@
+# Current access mode — guest review (6 October 2026)
+
+Click **Sign in as guest** to enter without an email, password, or registration.
+The navigation then shows **Sign out**. All existing member-facing review features
+remain available; order scan, voice, and facility requests remain simulations.
+
+Each new guest session gets a unique server-owned identity. It never uses a shared
+synthetic member. Saved conversations and preferences belong to that guest only.
+The cookie lasts up to eight hours; refresh can restore the session. Signing out,
+clearing cookies, or expiry means a new guest cannot recover the previous history.
+Stored history retains the existing 90-day expiry behavior; sign-out ends access,
+not database deletion. Private mode still prevents history and preference saving.
+
+Email registration, password login, and password-change HTTP endpoints are disabled
+(410). Existing database records are preserved. No database migration or account
+reset is needed for an already initialized deployment. Initial database bootstrap
+still uses the existing administrative setup script; its review-password setting is
+not a visitor credential. Basic throttling remains process-local, so public rollout
+needs distributed abuse controls and scheduled cleanup of expired guest records.
+
+This section supersedes older account/login instructions below.
+
+---
+
 # MySelfPay hosted review — v5
 
 Full application candidate for Vercel with PostgreSQL persistence. Synthetic review only.

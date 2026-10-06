@@ -58,27 +58,20 @@ class Handler(BaseHTTPRequestHandler):
         if method=='GET' and path in ('/','/app.js','/functional.js'):
             name={'/':'index.html','/app.js':'app.js','/functional.js':'functional.js'}[path]
             return self.respond(200,(core.ROOT/'static'/name).read_bytes(),content_type='text/html' if path=='/' else 'text/javascript')
-        if path=='/api/register' and method=='POST':
-            if not self.login_allowed('registration:global'):return self.respond(429,{'error':'Too many account requests. Wait one minute.'})
-            data=self.payload()
-            return self.respond(201,core.register(data.get('name'),data.get('email'),data.get('password'),db))
-        if path=='/api/login' and method=='POST':
-            data=self.payload()
-            email=core.normalize_email(data.get('email',''));password=data.get('password','')
-            if not self.login_allowed(email):return self.respond(429,{'error':'Too many sign-in attempts. Wait one minute.'})
-            result=core.login(email,password,db)
-            if not result:return self.respond(401,{'error':'Invalid credentials'})
-            token=result.pop('token')
+        if path in ('/api/register','/api/login','/api/password'):
+            return self.respond(410,{'error':'Use Sign in as guest. Email and password sign-in is disabled.'})
+        if path=='/api/guest' and method=='POST':
+            if not self.login_allowed('guest'):return self.respond(429,{'error':'Too many requests. Wait one minute.'})
+            self.payload()
+            existing=core.session(self.token(),db)
+            if existing and existing['tenant']=='guest':
+                return self.respond(200,{'member':{k:v for k,v in existing.items() if k!='csrf'},'csrf':existing['csrf']})
+            result=core.guest_login(db);token=result.pop('token')
             return self.respond(200,result,cookie=f'selfpay_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800')
         member=core.session(self.token(),db)
         if not member:return self.respond(401,{'error':'Sign in to your account'})
         if method!='GET' and not secrets.compare_digest(self.request_header('X-CSRF-Token',''),member['csrf']):
             return self.respond(403,{'error':'CSRF token required'})
-        if path=='/api/password' and method=='POST':
-            if not self.login_allowed('password:'+member['id']):return self.respond(429,{'error':'Too many password attempts. Wait one minute.'})
-            data=self.payload()
-            result=core.change_password(member,data.get('current_password'),data.get('new_password'),db)
-            return self.respond(200,result,cookie='selfpay_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
         if path=='/api/me' and method=='GET':return self.respond(200,{'member':{k:v for k,v in member.items() if k!='csrf'},'csrf':member['csrf']})
         if path=='/api/logout' and method=='POST':
             with core.connect(db) as con:con.execute('DELETE FROM sessions WHERE token_hash=?',(hashlib.sha256(self.token().encode()).hexdigest(),))

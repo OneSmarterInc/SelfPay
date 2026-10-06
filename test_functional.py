@@ -174,8 +174,10 @@ class FunctionalTests(unittest.TestCase):
     def test_28_register_login_and_organization_isolation(self):
         self.http.login_attempts=[]
         data={'name':'Reviewer','email':'New.Reviewer@Example.test','password':'Eight123','tenant':'plan-a'}
-        self.assertEqual(self.req('/api/register',data)[0],201)
-        self.assertEqual(self.req('/api/register',data)[0],400)
+        first=self.req('/api/register',data)
+        # A repeat registration looks identical and must not overwrite the existing password.
+        second=self.req('/api/register',{**data,'password':'Different1'})
+        self.assertEqual((first[0],first[1]),(second[0],second[1]));self.assertEqual(first[0],201)
         status,r,h=self.req('/api/login',{'email':' NEW.REVIEWER@example.test ','password':'Eight123'})
         self.assertEqual(status,200);self.assertEqual(r['member']['tenant'],'review')
         a={'cookie':h['Set-Cookie'].split(';')[0],'csrf':r['csrf'],'member':r['member']}
@@ -207,5 +209,34 @@ class FunctionalTests(unittest.TestCase):
         self.assertEqual(self.req('/api/me',auth=b)[0],401)
         self.assertEqual(self.req('/api/login',{'email':'password@example.test','password':'Eight123'})[0],401)
         self.assertEqual(self.req('/api/login',{'email':'password@example.test','password':'New12345'})[0],200)
+
+    def test_31_rate_limits_keyed_by_email_and_ip(self):
+        h=object.__new__(server.Handler);h.server=SimpleNamespace(login_attempts=[])
+        attacker=lambda:h.all_allowed(('login_pair','login:a@x.test|198.51.100.1'),('login_ip','login-ip:198.51.100.1'),('login_email','login-email:a@x.test'))
+        member=lambda:h.all_allowed(('login_pair','login:a@x.test|203.0.113.5'),('login_ip','login-ip:203.0.113.5'),('login_email','login-email:a@x.test'))
+        self.assertEqual(sum(attacker() for _ in range(15)),server.LIMITS['login_pair'])
+        self.assertTrue(member(),'An attacker on another IP must not lock the member out')
+        h.server.login_attempts=[]
+        self.assertEqual(sum(h.all_allowed(('register_ip','register-ip:198.51.100.1'),('register_global','register:global')) for _ in range(8)),server.LIMITS['register_ip'])
+        self.assertTrue(h.all_allowed(('register_ip','register-ip:203.0.113.5'),('register_global','register:global')))
+
+    def test_32_internal_errors_are_not_echoed(self):
+        a=self.sign_in()
+        status,body,_=self.req('/api/agent',{'message':'knee MRI','search':'not-an-object'},auth=a)
+        self.assertEqual(status,400);self.assertEqual(body['error'],'Invalid request')
+        status,body,_=self.req('/api/agent',{'message':'','search':{}},auth=a)
+        self.assertEqual(status,400);self.assertIn('1–2000',body['error'])
+
+    def test_33_legacy_hash_upgrades_on_login(self):
+        import hashlib,secrets
+        salt=secrets.token_hex(16);legacy=hashlib.pbkdf2_hmac('sha256',b'Legacy123',bytes.fromhex(salt),200000).hex()
+        with core.connect(self.db) as db:
+            db.execute('INSERT INTO members VALUES(?,?,?,?,?,?)',('legacy-id','review','legacy@example.test','Legacy',salt,legacy))
+        self.http.login_attempts=[]
+        self.assertEqual(self.req('/api/login',{'email':'legacy@example.test','password':'Legacy123'})[0],200)
+        with core.connect(self.db) as db:
+            stored=db.execute("SELECT password_hash FROM members WHERE id='legacy-id'").fetchone()['password_hash']
+        self.assertTrue(stored.startswith(f'pbkdf2${core.PBKDF2_ITERATIONS}$'))
+        self.assertEqual(self.req('/api/login',{'email':'legacy@example.test','password':'Legacy123'})[0],200)
 
 if __name__=='__main__':unittest.main(verbosity=2)

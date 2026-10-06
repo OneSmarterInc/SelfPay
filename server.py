@@ -9,8 +9,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 import core
 
+# Per-minute limits. Keying by email+IP (not email alone) stops one attacker locking out a member;
+# the IP and email ceilings still cap credential stuffing and distributed guessing.
+LIMITS={'login_pair':10,'login_ip':60,'login_email':100,'register_ip':5,'register_global':100,'password':20,'guest_ip':20}
+
 class Handler(BaseHTTPRequestHandler):
     server_version='MySelfPayPOC'
+    cookie_name='selfpay_session'
     def log_message(self,*args): pass  # No searches, transcripts or member details in access logs.
     def respond(self,status,data,cookie=None,content_type='application/json'):
         body=json.dumps(data).encode() if content_type=='application/json' else data
@@ -22,15 +27,20 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Referrer-Policy','no-referrer')
         self.send_header('X-Frame-Options','DENY')
         self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+        for name,value in self.extra_headers():self.send_header(name,value)
         if cookie:self.send_header('Set-Cookie',cookie)
         self.end_headers();self.wfile.write(body)
+    def extra_headers(self):return []
+    def session_cookie(self,token='',max_age=28800):
+        return f'{self.cookie_name}={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={max_age if token else 0}'
+    def client_ip(self):return self.client_address[0] if getattr(self,'client_address',None) else 'unknown'
     def request_header(self,name,default=None):
         # Runtime adapters may supply a plain dict instead of HTTPMessage.
         return next((value for key,value in self.headers.items()
                      if key.casefold()==name.casefold()),default)
     def token(self):
         jar=SimpleCookie()
-        try:jar.load(self.request_header('Cookie',''));return jar['selfpay_session'].value if 'selfpay_session' in jar else ''
+        try:jar.load(self.request_header('Cookie',''));return jar[self.cookie_name].value if self.cookie_name in jar else ''
         except Exception:return ''
     def payload(self):
         if not self.request_header('Content-Type','').startswith('application/json'):raise ValueError('JSON required')
@@ -46,12 +56,15 @@ class Handler(BaseHTTPRequestHandler):
         origin=self.request_header('Origin')
         return not origin or origin==f'http://{host}'
     def database_path(self):return self.server.db_path
-    def login_allowed(self,email):
+    def login_allowed(self,key,limit=20):
         now=time.monotonic()
-        self.server.login_attempts=[x for x in self.server.login_attempts if now-x<60]
-        if len(self.server.login_attempts)>=20:return False
-        self.server.login_attempts.append(now)
+        self.server.login_attempts=[(k,t) for k,t in self.server.login_attempts if now-t<60]
+        if sum(1 for k,_ in self.server.login_attempts if k==key)>=limit:return False
+        self.server.login_attempts.append((key,now))
         return True
+    def all_allowed(self,*checks):
+        # Every counter is incremented so a blocked caller cannot reset one limit by tripping another.
+        return all([self.login_allowed(key,LIMITS[kind]) for kind,key in checks])
     def route_selfpay_request(self,method):
         if not self.validate_origin():return self.respond(403,{'error':'Origin or host rejected'})
         path=urlparse(self.path).path;db=self.database_path()
@@ -61,13 +74,13 @@ class Handler(BaseHTTPRequestHandler):
         if path in ('/api/register','/api/login','/api/password'):
             return self.respond(410,{'error':'Use Sign in as guest. Email and password sign-in is disabled.'})
         if path=='/api/guest' and method=='POST':
-            if not self.login_allowed('guest'):return self.respond(429,{'error':'Too many requests. Wait one minute.'})
+            if not self.all_allowed(('guest_ip','guest-ip:'+self.client_ip())):return self.respond(429,{'error':'Too many requests. Wait one minute.'})
             self.payload()
             existing=core.session(self.token(),db)
             if existing and existing['tenant']=='guest':
                 return self.respond(200,{'member':{k:v for k,v in existing.items() if k!='csrf'},'csrf':existing['csrf']})
             result=core.guest_login(db);token=result.pop('token')
-            return self.respond(200,result,cookie=f'selfpay_session={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800')
+            return self.respond(200,result,cookie=self.session_cookie(token))
         member=core.session(self.token(),db)
         if not member:return self.respond(401,{'error':'Sign in to your account'})
         if method!='GET' and not secrets.compare_digest(self.request_header('X-CSRF-Token',''),member['csrf']):
@@ -75,7 +88,7 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/me' and method=='GET':return self.respond(200,{'member':{k:v for k,v in member.items() if k!='csrf'},'csrf':member['csrf']})
         if path=='/api/logout' and method=='POST':
             with core.connect(db) as con:con.execute('DELETE FROM sessions WHERE token_hash=?',(hashlib.sha256(self.token().encode()).hexdigest(),))
-            return self.respond(200,{'ok':True},cookie='selfpay_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
+            return self.respond(200,{'ok':True},cookie=self.session_cookie())
         if path=='/api/catalog' and method=='GET':return self.respond(200,core.catalog(db))
         if path=='/api/search' and method=='POST':return self.respond(200,core.search(self.payload(),db))
         if path=='/api/agent' and method=='POST':
@@ -106,7 +119,11 @@ class Handler(BaseHTTPRequestHandler):
     def dispatch(self,method):
         try:self.route_selfpay_request(method)
         except PermissionError:self.respond(404,{'error':'Record unavailable'})
-        except (ValueError,TypeError,KeyError,AttributeError) as exc:self.respond(400,{'error':str(exc)})
+        except ValueError as exc:
+            # Validation messages are written for members. Parser and type errors are not, so they stay generic.
+            message=str(exc) if type(exc) is ValueError else 'Invalid request'
+            self.respond(400,{'error':message})
+        except (TypeError,KeyError,AttributeError):self.respond(400,{'error':'Invalid request'})
         except Exception:self.respond(500,{'error':'Request failed. Your input has not been discarded; retry or restart the local app.'})
     def do_GET(self):self.dispatch('GET')
     def do_POST(self):self.dispatch('POST')

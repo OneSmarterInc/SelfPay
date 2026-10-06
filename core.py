@@ -18,6 +18,21 @@ DEMO_PASSWORD = os.environ.get('REVIEW_PASSWORD', 'DemoOnly-2026!')
 ACCOUNTS = [('alex.a@example.test','plan-a','Alex'), ('sam.a@example.test','plan-a','Sam'),
             ('alex.b@example.test','plan-b','Alex'), ('jordan.b@example.test','plan-b','Jordan')]
 
+PBKDF2_ITERATIONS = 600000  # OWASP 2023 guidance for PBKDF2-HMAC-SHA256
+LEGACY_ITERATIONS = 200000  # hashes stored before the upgrade are bare hex at this count
+
+def hash_password(password, salt_hex, iterations=PBKDF2_ITERATIONS):
+    raw = hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt_hex), iterations).hex()
+    return raw if iterations == LEGACY_ITERATIONS else f'pbkdf2${iterations}${raw}'
+
+def verify_password(password, salt_hex, stored):
+    """Constant-time check that accepts current and legacy hash formats."""
+    iterations = int(stored.split('$')[1]) if stored.startswith('pbkdf2$') else LEGACY_ITERATIONS
+    return hmac.compare_digest(hash_password(password, salt_hex, iterations), stored)
+
+def needs_rehash(stored):
+    return not stored.startswith(f'pbkdf2${PBKDF2_ITERATIONS}$')
+
 def canonical(value):
     return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
 
@@ -66,7 +81,7 @@ def initialize(path=DB):
         for email, tenant, name in ACCOUNTS:
             if db.execute('SELECT 1 FROM members WHERE email=?', (email,)).fetchone(): continue
             salt = secrets.token_hex(16)
-            pw = hashlib.pbkdf2_hmac('sha256',DEMO_PASSWORD.encode(),bytes.fromhex(salt),200000).hex()
+            pw = hash_password(DEMO_PASSWORD, salt)
             db.execute('INSERT INTO members VALUES(?,?,?,?,?,?)', (str(uuid.uuid4()),tenant,email,name,salt,pw))
     try: os.chmod(path,0o600)
     except OSError: pass
@@ -263,26 +278,24 @@ def password_fields(password):
     if not isinstance(password,str) or not 8<=len(password)<=200:
         raise ValueError('Use a password between 8 and 200 characters')
     salt=secrets.token_hex(16)
-    hashed=hashlib.pbkdf2_hmac('sha256',password.encode(),bytes.fromhex(salt),200000).hex()
-    return salt,hashed
+    return salt,hash_password(password,salt)
 
 def register(name,email,password,path=DB):
     email=normalize_email(email)
     if not isinstance(name,str) or not 1<=len(name.strip())<=80:raise ValueError('Enter a name of 1–80 characters')
     salt,hashed=password_fields(password)
     with connect(path) as db:
-        created=db.execute('INSERT INTO members VALUES(?,?,?,?,?,?) ON CONFLICT(email) DO NOTHING',
-            (str(uuid.uuid4()),'review',email,name.strip(),salt,hashed)).rowcount
-        if not created:raise ValueError('Unable to create this account. If you already registered, sign in.')
-    return {'ok':True}
+        # Same response whether or not the email exists, so registration cannot be used to probe accounts.
+        db.execute('INSERT INTO members VALUES(?,?,?,?,?,?) ON CONFLICT(email) DO NOTHING',
+            (str(uuid.uuid4()),'review',email,name.strip(),salt,hashed))
+    return {'ok':True,'message':'If this email can be registered, your account is ready. Sign in to continue.'}
 
 def change_password(member,current_password,new_password,path=DB):
     if not isinstance(current_password,str) or len(current_password)>200:raise ValueError('Current password is incorrect')
     salt,hashed=password_fields(new_password)
     with connect(path) as db:
         row=db.execute('SELECT salt,password_hash FROM members WHERE id=? AND tenant=?',(member['id'],member['tenant'])).fetchone()
-        candidate=hashlib.pbkdf2_hmac('sha256',current_password.encode(),bytes.fromhex(row['salt']),200000).hex() if row else ''
-        if not row or not hmac.compare_digest(candidate,row['password_hash']):raise ValueError('Current password is incorrect')
+        if not row or not verify_password(current_password,row['salt'],row['password_hash']):raise ValueError('Current password is incorrect')
         db.execute('UPDATE members SET salt=?,password_hash=? WHERE id=? AND tenant=?',(salt,hashed,member['id'],member['tenant']))
         db.execute('DELETE FROM sessions WHERE member_id=?',(member['id'],))
     return {'ok':True}
@@ -302,9 +315,13 @@ def login(email,password,path=DB):
     if not isinstance(password,str) or len(password)>200:return None
     with connect(path) as db:
         row=db.execute('SELECT * FROM members WHERE email=?',(email,)).fetchone()
-        salt=bytes.fromhex(row['salt']) if row else bytes(16)
-        pw=hashlib.pbkdf2_hmac('sha256',password.encode(),salt,200000).hex()
-        if not row or not hmac.compare_digest(pw,row['password_hash']):return None
+        if not row:
+            hash_password(password,'00'*16)  # equal work for unknown emails (no enumeration by timing)
+            return None
+        if not verify_password(password,row['salt'],row['password_hash']):return None
+        if needs_rehash(row['password_hash']):
+            salt=secrets.token_hex(16);hashed=hash_password(password,salt)
+            db.execute('UPDATE members SET salt=?,password_hash=? WHERE id=?',(salt,hashed,row['id']))
         token=secrets.token_urlsafe(32);csrf=secrets.token_urlsafe(24)
         db.execute('INSERT INTO sessions VALUES(?,?,?,?)',(hashlib.sha256(token.encode()).hexdigest(),row['id'],csrf,time.time()+8*3600))
         return {'token':token,'csrf':csrf,'member':{'id':row['id'],'tenant':row['tenant'],'name':row['name'],'email':row['email']}}

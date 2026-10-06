@@ -205,4 +205,42 @@ class FunctionalTests(unittest.TestCase):
         with core.connect(self.db) as db:db.execute('UPDATE sessions SET expires=0 WHERE member_id=?',(a['member']['id'],))
         self.assertEqual(self.req('/api/me',auth=a)[0],401)
 
+    def test_31_rate_limits_keyed_by_email_and_ip(self):
+        h=object.__new__(server.Handler);h.server=SimpleNamespace(login_attempts=[])
+        attacker=lambda:h.all_allowed(('login_pair','login:a@x.test|198.51.100.1'),('login_ip','login-ip:198.51.100.1'),('login_email','login-email:a@x.test'))
+        member=lambda:h.all_allowed(('login_pair','login:a@x.test|203.0.113.5'),('login_ip','login-ip:203.0.113.5'),('login_email','login-email:a@x.test'))
+        self.assertEqual(sum(attacker() for _ in range(15)),server.LIMITS['login_pair'])
+        self.assertTrue(member(),'An attacker on another IP must not lock the member out')
+        h.server.login_attempts=[]
+        self.assertEqual(sum(h.all_allowed(('register_ip','register-ip:198.51.100.1'),('register_global','register:global')) for _ in range(8)),server.LIMITS['register_ip'])
+        self.assertTrue(h.all_allowed(('register_ip','register-ip:203.0.113.5'),('register_global','register:global')))
+
+    def test_guest_limit_is_per_ip(self):
+        self.http.login_attempts=[]
+        for _ in range(server.LIMITS['guest_ip']):
+            self.assertEqual(self.req('/api/guest',{})[0],200)
+        self.assertEqual(self.req('/api/guest',{})[0],429)
+        h=object.__new__(server.Handler);h.server=self.http
+        self.assertTrue(h.all_allowed(('guest_ip','guest-ip:203.0.113.8')))
+        self.http.login_attempts=[]
+
+    def test_32_internal_errors_are_not_echoed(self):
+        a=self.sign_in()
+        status,body,_=self.req('/api/agent',{'message':'knee MRI','search':'not-an-object'},auth=a)
+        self.assertEqual(status,400);self.assertEqual(body['error'],'Invalid request')
+        status,body,_=self.req('/api/agent',{'message':'','search':{}},auth=a)
+        self.assertEqual(status,400);self.assertIn('1–2000',body['error'])
+
+    def test_33_legacy_hash_upgrades_on_login(self):
+        import hashlib,secrets
+        salt=secrets.token_hex(16);legacy=hashlib.pbkdf2_hmac('sha256',b'Legacy123',bytes.fromhex(salt),200000).hex()
+        with core.connect(self.db) as db:
+            db.execute('INSERT INTO members VALUES(?,?,?,?,?,?)',('legacy-id','review','legacy@example.test','Legacy',salt,legacy))
+        self.http.login_attempts=[]
+        self.assertIsNotNone(core.login('legacy@example.test','Legacy123',self.db))
+        with core.connect(self.db) as db:
+            stored=db.execute("SELECT password_hash FROM members WHERE id='legacy-id'").fetchone()['password_hash']
+        self.assertTrue(stored.startswith(f'pbkdf2${core.PBKDF2_ITERATIONS}$'))
+        self.assertIsNotNone(core.login('legacy@example.test','Legacy123',self.db))
+
 if __name__=='__main__':unittest.main(verbosity=2)

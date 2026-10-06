@@ -33,7 +33,7 @@ class HostedTests(unittest.TestCase):
         h=self.instance()
         with patch.dict(os.environ,{'VERCEL_URL':'review.vercel.app','APP_HOSTS':'','VERCEL_BRANCH_URL':'branch.vercel.app'}):
             h.headers={'host':'127.0.0.1:3000','x-forwarded-host':'review.vercel.app',
-                       'origin':'https://review.vercel.app','cookie':'selfpay_session=test'}
+                       'origin':'https://review.vercel.app','cookie':'__Host-selfpay_session=test'}
             self.assertTrue(h.validate_origin())
             self.assertEqual(h.token(),'test')
             h.headers['origin']='https://attacker.example'
@@ -72,6 +72,28 @@ class HostedTests(unittest.TestCase):
     def test_cookie_is_secure(self):
         h=self.instance();h.respond(200,{},cookie='selfpay_session=test; HttpOnly; SameSite=Strict; Path=/')
         self.assertIn('; Secure',h.sent['Set-Cookie'])
+    def test_host_prefixed_cookie_and_hsts(self):
+        h=self.instance();h.respond(200,{},cookie=h.session_cookie('abc'))
+        self.assertTrue(h.sent['Set-Cookie'].startswith('__Host-selfpay_session=abc;'))
+        self.assertIn('Path=/',h.sent['Set-Cookie']);self.assertNotIn('Domain',h.sent['Set-Cookie'])
+        self.assertIn('max-age=',h.sent['Strict-Transport-Security'])
+    def test_guest_route_issues_host_cookie(self):
+        from unittest.mock import patch
+        h=self.instance();h.path='/api/guest';h.headers={'host':'review.vercel.app','content-type':'application/json','content-length':'2'};h.rfile=io.BytesIO(b'{}')
+        statuses=[];h.send_response=statuses.append
+        result={'token':'guest-token','csrf':'csrf','member':{'id':'guest-id','tenant':'guest','name':'Guest'}}
+        with patch.dict(os.environ,{'VERCEL_URL':'review.vercel.app','DATABASE_URL':'postgresql://synthetic.invalid/demo'}), patch.object(h,'login_allowed',return_value=True), patch('core.session',return_value=None), patch('core.guest_login',return_value=result):
+            h.do_POST()
+        self.assertEqual(statuses,[200])
+        self.assertTrue(h.sent['Set-Cookie'].startswith('__Host-selfpay_session='))
+        self.assertIn('; Secure',h.sent['Set-Cookie'])
+        h.headers={'cookie':h.sent['Set-Cookie'].split(';')[0]}
+        self.assertEqual(h.token(),'guest-token')
+
+    def test_client_ip_uses_platform_headers(self):
+        h=self.instance();h.headers={'x-real-ip':'203.0.113.9','x-forwarded-for':'198.51.100.1'}
+        self.assertEqual(h.client_ip(),'203.0.113.9')
+        h.headers={'x-forwarded-for':'198.51.100.1, 10.0.0.1'};self.assertEqual(h.client_ip(),'198.51.100.1')
     def test_review_password_not_in_page(self):
         h=self.instance();h.respond(200,b'value="DemoOnly-2026!" Demo password: DemoOnly-2026!',content_type='text/javascript')
         self.assertNotIn(b'DemoOnly-2026!',h.wfile.getvalue())
@@ -82,6 +104,11 @@ class HostedTests(unittest.TestCase):
         value="x' OR 1=1--"
         p.execute('SELECT * FROM members WHERE email=?',(value,))
         self.assertEqual(p.connection.received,('SELECT * FROM members WHERE email=%s',(value,)))
+    def test_pooler_detection(self):
+        from postgres_store import uses_pooler
+        self.assertTrue(uses_pooler('postgresql://u:p@ep-x-pooler.us-east-1.aws.neon.tech/db'))
+        self.assertFalse(uses_pooler('postgresql://u:p@ep-x.us-east-1.aws.neon.tech/db'))
+        self.assertTrue(uses_pooler('postgresql://synthetic.invalid/demo'))
     def test_postgres_transaction_closes(self):
         class Connection:
             calls=[]

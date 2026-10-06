@@ -186,16 +186,27 @@ def catalog(path=DB):
             o['amount']=r['amount_cents']/100 if r['amount_cents'] is not None else None
             if r['max_cents'] is not None:o['max']=r['max_cents']/100
             offers.append(o)
-    return {'version':batch,'entries':list(entries.values()),'offers':offers}
+    return {'version':batch,'entries':list(entries.values()),'offers':offers,'locations':[label for label,city in location_choices(entries.values())]}
 
 LOCATION_CHOICES = [('Cincinnati, OH','Cincinnati'),('Louisville, KY','Louisville'),('Lexington, KY','Lexington'),('Philadelphia, PA','Philadelphia'),('Boise, ID','Boise'),('Lawrenceville, GA','Lawrenceville'),('Auburn, WA','Auburn'),('Spanish Fork, UT','Spanish Fork'),('South Burlington, VT','South Burlington'),('Wisconsin','Wisconsin'),('National','National')]
 
-def location_options(value):
+def location_choices(entries):
+    choices = list(LOCATION_CHOICES)
+    for entry in entries:
+        state = entry['states'].strip()
+        if len(state) != 2: continue
+        for city in entry['area'].split('/'):
+            city = city.strip()
+            if city: choices.append((f'{city}, {state}', city))
+    return list(dict.fromkeys(choices))
+
+def location_options(value, choices=None):
     from difflib import SequenceMatcher
+    choices = LOCATION_CHOICES if choices is None else choices
     q=value.strip().casefold()
-    exact=[label for label,city in LOCATION_CHOICES if q in (label.casefold(),city.casefold())]
+    exact=[label for label,city in choices if q in (label.casefold(),city.casefold())]
     if exact:return exact
-    return [label for label,city in LOCATION_CHOICES if q and (city.casefold().startswith(q) or SequenceMatcher(None,q,city.casefold()).ratio()>=0.65)]
+    return [label for label,city in choices if q and (city.casefold().startswith(q) or SequenceMatcher(None,q,city.casefold()).ratio()>=0.65)]
 
 def clean_search(raw):
     mod=raw.get('mod',''); contrast=raw.get('contrast','unknown'); typ=raw.get('type','all')
@@ -211,17 +222,21 @@ def clean_search(raw):
 
 def search(raw,path=DB):
     s=clean_search(raw); data=catalog(path); result=[]; location=s['location'].casefold()
-    exact=[city for label,city in LOCATION_CHOICES if label.casefold()==location]
+    choices=location_choices(data['entries'])
+    exact=[city for label,city in choices if label.casefold()==location]
+    selected_state=s['location'].rsplit(', ',1)[-1] if exact and ', ' in s['location'] else None
     if exact:location=exact[0].casefold()
-    suggestions=location_options(s['location'])
-    needs_choice=bool(suggestions) and (not any(location==city.casefold() for label,city in LOCATION_CHOICES) or (location=='auburn' and not exact))
+    suggestions=location_options(s['location'],choices)
+    needs_choice=bool(suggestions) and (not any(location==city.casefold() for label,city in choices) or (location=='auburn' and not exact))
     if needs_choice:location='__unconfirmed_location__'
     for o in data['offers']:
         if not s['mod'] or not s['body'].strip() or not location:continue
         e=o['entry']
+        if selected_state and selected_state not in [x.strip() for x in e['states'].split(';')]:continue
+        if o.get('exam_terms') and not any(term in s['body'].casefold() for term in o['exam_terms']):continue
         if o['mod']!=s['mod'] or (s['type']!='all' and s['type']!=o['type']):continue
         if s['contrast']!='unknown' and o['contrast'] not in (s['contrast'],'unknown'):continue
-        if not (location=='national' or location in o['region'].casefold() or location in e['area'].casefold() or location==e['states'].casefold()):continue
+        if not (location=='national' or location in o['region'].casefold() or location in e['area'].casefold() or location in [x.strip().casefold() for x in e['states'].split(';')]):continue
         o['match_status']='Exact body-part and protocol applicability requires confirmation'
         o['budget_status']='Budget fit unconfirmed'
         if not s['budget']:o['budget_status']='No budget set'

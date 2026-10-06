@@ -77,6 +77,19 @@ class HostedTests(unittest.TestCase):
         self.assertTrue(h.sent['Set-Cookie'].startswith('__Host-selfpay_session=abc;'))
         self.assertIn('Path=/',h.sent['Set-Cookie']);self.assertNotIn('Domain',h.sent['Set-Cookie'])
         self.assertIn('max-age=',h.sent['Strict-Transport-Security'])
+    def test_guest_route_issues_host_cookie(self):
+        from unittest.mock import patch
+        h=self.instance();h.path='/api/guest';h.headers={'host':'review.vercel.app','content-type':'application/json','content-length':'2'};h.rfile=io.BytesIO(b'{}')
+        statuses=[];h.send_response=statuses.append
+        result={'token':'guest-token','csrf':'csrf','member':{'id':'guest-id','tenant':'guest','name':'Guest'}}
+        with patch.dict(os.environ,{'VERCEL_URL':'review.vercel.app','DATABASE_URL':'postgresql://synthetic.invalid/demo'}), patch.object(h,'login_allowed',return_value=True), patch('core.session',return_value=None), patch('core.guest_login',return_value=result):
+            h.do_POST()
+        self.assertEqual(statuses,[200])
+        self.assertTrue(h.sent['Set-Cookie'].startswith('__Host-selfpay_session='))
+        self.assertIn('; Secure',h.sent['Set-Cookie'])
+        h.headers={'cookie':h.sent['Set-Cookie'].split(';')[0]}
+        self.assertEqual(h.token(),'guest-token')
+
     def test_client_ip_uses_platform_headers(self):
         h=self.instance();h.headers={'x-real-ip':'203.0.113.9','x-forwarded-for':'198.51.100.1'}
         self.assertEqual(h.client_ip(),'203.0.113.9')

@@ -45,6 +45,15 @@ class PostgresIntegration(unittest.TestCase):
         with self.assertRaises(PermissionError):
             core.delete_conversation(member_b, saved['id'], URL)
 
+    def test_guest_sessions_are_separate(self):
+        core=self.core
+        a=core.guest_login(URL);b=core.guest_login(URL)
+        self.assertNotEqual(a['member']['id'],b['member']['id'])
+        member=core.session(a['token'],URL)
+        self.assertEqual(member['tenant'],'guest')
+        core.preference(member,{'location':'Cincinnati'},path=URL)
+        self.assertEqual(core.preference(core.session(b['token'],URL),path=URL),{})
+
     def test_registration_is_uniform_and_hash_upgraded(self):
         core = self.core
         first = core.register('Reviewer', 'pg.reviewer@example.test', 'Eight123', URL)

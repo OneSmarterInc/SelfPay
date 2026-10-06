@@ -5,5 +5,8 @@
       "maxDuration": 30,
       "includeFiles": "{static/**,seed/**,core.py,server.py,postgres_store.py}"
     }
+  },
+  "github": {
+    "autoAlias": false
   }
 }

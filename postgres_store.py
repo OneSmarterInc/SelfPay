@@ -1,9 +1,17 @@
 """Small adapter for the app's fixed SQL statements; values always remain parameters."""
+from urllib.parse import urlparse
+
+def uses_pooler(url):
+    host=urlparse(url).hostname or ''
+    return '-pooler.' in host or not host.endswith('neon.tech')
 class PostgresConnection:
     def __init__(self,url):
         import psycopg
         from psycopg.rows import dict_row
-        self.connection=psycopg.connect(url,row_factory=dict_row,connect_timeout=10,sslmode='require')
+        # Serverless functions open a connection per call, so DATABASE_URL must be Neon's pooled (-pooler)
+        # endpoint. Server-side prepared statements are disabled because a transaction pooler can hand the
+        # next statement to a different backend connection.
+        self.connection=psycopg.connect(url,row_factory=dict_row,connect_timeout=10,sslmode='require',prepare_threshold=None)
     def __enter__(self):return self
     def __exit__(self,kind,value,tb):
         try:

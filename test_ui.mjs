@@ -26,7 +26,6 @@ const fetch=async(url,options={})=>{
 const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeout(){},document:{getElementById:node,querySelectorAll:()=>[]}});
 {
   vm.runInContext(fs.readFileSync('static/app.js','utf8'),ctx);
-  vm.runInContext(fs.readFileSync('static/functional.js','utf8'),ctx);
   await vm.runInContext('bootReady',ctx);
   assert.match(node('app').innerHTML,/Understand your self-pay imaging options/);
   await vm.runInContext('signInGuest()',ctx);

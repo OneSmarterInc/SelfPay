@@ -23,7 +23,7 @@ jobs:
           sudo -u postgres psql -c "CREATE USER selfpay WITH PASSWORD 'selfpay-test';"
           sudo -u postgres psql -c "CREATE DATABASE selfpay_test OWNER selfpay;"
       - name: Unit and functional tests (SQLite)
-        run: python -m unittest test_functional test_hosted -v
+        run: python -m unittest test_functional test_hosted test_cleanup -v
       - name: PostgreSQL integration tests
         env:
           TEST_DATABASE_URL: postgresql://selfpay:selfpay-test@localhost/selfpay_test

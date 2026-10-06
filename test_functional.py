@@ -13,6 +13,7 @@ class FunctionalTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp=tempfile.TemporaryDirectory();cls.db=Path(cls.temp.name)/'test.sqlite3'
+        cls.old_password=core.DEMO_PASSWORD;core.DEMO_PASSWORD='Synthetic-test-password-1'
         core.initialize(cls.db)
         batch=core.stage_import(core.ROOT/'seed/directory.json',core.ROOT/'seed/mappings.json',cls.db)
         core.publish(batch['id'],cls.db)
@@ -20,7 +21,7 @@ class FunctionalTests(unittest.TestCase):
         cls.http=SimpleNamespace(server_port=cls.port,db_path=cls.db,login_attempts=[])
     @classmethod
     def tearDownClass(cls):
-        cls.temp.cleanup()
+        cls.temp.cleanup();core.DEMO_PASSWORD=cls.old_password
     def req(self,path,body=None,method=None,auth=None,headers=None):
         method=method or ('POST' if body is not None else 'GET');h={}
         if body is not None:h['Content-Type']='application/json'
@@ -127,7 +128,7 @@ class FunctionalTests(unittest.TestCase):
         a=self.sign_in();self.req('/api/logout',{},auth=a);self.assertEqual(self.req('/api/me',auth=a)[0],401)
     def test_21_static_does_not_expose_database(self):
         a=self.sign_in();self.assertEqual(self.req('/data/myselfpay.sqlite3',auth=a)[0],404)
-        status,body,h=self.req('/');self.assertEqual(status,200);self.assertIn(b'/functional.js',body);self.assertIn("connect-src 'self'",h['Content-Security-Policy'])
+        status,body,h=self.req('/');self.assertEqual(status,200);self.assertIn(b'type="module" src="/app.js"',body);self.assertIn("connect-src 'self'",h['Content-Security-Policy'])
     def test_22_expiration(self):
         a=self.sign_in();_,r,_=self.req('/api/conversations',self.payload(),auth=a)
         with core.connect(self.db) as db:db.execute('UPDATE conversations SET expires=0 WHERE id=?',(r['id'],))

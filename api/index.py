@@ -8,12 +8,25 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import core
 import server
+from postgres_store import uses_pooler
 
 class handler(server.Handler):
+    # __Host- cookies must be Secure, Path=/ and host-only, so a sibling subdomain cannot set or shadow them.
+    cookie_name='__Host-selfpay_session'
+    def extra_headers(self):
+        return [('Strict-Transport-Security','max-age=63072000; includeSubDomains')]
+    def client_ip(self):
+        # Vercel overwrites these headers at its edge, so client-supplied values are not trusted through.
+        real=self.request_header('X-Real-IP')
+        if real:return real.strip()[:64]
+        forwarded=self.request_header('X-Forwarded-For','')
+        return forwarded.split(',')[0].strip()[:64] or 'unknown'
     def database_path(self):
         url=os.environ.get('DATABASE_URL','')
         if not url.startswith(('postgres://','postgresql://')):
             raise RuntimeError('Hosted database not configured')
+        if not uses_pooler(url):
+            print('SELFPAY_DB_WARNING DATABASE_URL is a direct Neon endpoint; use the pooled (-pooler) URL.',flush=True)
         return url
     def validate_origin(self):
         host=self.request_header('X-Forwarded-Host') or self.request_header('Host','')
@@ -40,11 +53,11 @@ class handler(server.Handler):
             text=text.replace('MySelfPay POC v4.1','MySelfPay Review v5')
             data=text.encode('utf-8')
         return super().respond(status,data,cookie,content_type)
-    def login_allowed(self,email):
+    def login_allowed(self,key,limit=20):
         # Database-backed counter works across serverless instances. Store no raw email/IP.
-        key=hashlib.sha256(email.casefold().encode()).hexdigest()
+        key=hashlib.sha256(key.casefold().encode()).hexdigest()
         minute=int(time.time()//60)
         with core.connect(self.database_path()) as db:
             db.execute('DELETE FROM login_limits WHERE window_id<?',(minute-2,))
             row=db.execute('INSERT INTO login_limits VALUES(?,?,1) ON CONFLICT(key,window_id) DO UPDATE SET attempts=login_limits.attempts+1 RETURNING attempts',(key,minute)).fetchone()
-        return row['attempts']<=20
+        return row['attempts']<=limit

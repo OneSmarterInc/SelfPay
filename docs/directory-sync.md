@@ -67,6 +67,11 @@ The project is documentary; SQL checks the database and actual Neon branch setti
 1. Review and approve the exact `ops/directory_sync.sql` grant package. An
    administrator executes it against that target. It is transactional, refuses
    existing role/schema names, and checks the reviewed active batch and counts.
+   Vercel Query accepts only one prepared statement: use the reviewed
+   `ops/directory_sync_query.sql` wrapper there, not the multi-command psql file.
+   The wrapper embeds the same package with only outer BEGIN/COMMIT removed; its
+   single invoker DO statement preserves atomic rollback and every guard/grant.
+   The administrator must have INHERIT and CREATEROLE (verified for neondb_owner).
    Never run `core.initialize`, `setup_hosted.py`, `test_postgres`, or any unit test
    against this database. Existing data stays untouched during provisioning.
 2. The package creates:
@@ -164,7 +169,7 @@ roles and databases; they are prohibited against hosted environments.
 - SQLite/app checks: `python -m unittest test_functional test_hosted test_cleanup test_guest_limits test_guest_tier -v`
 - Client checks: `node test_ui.mjs` (stub transport, not visual browser QA)
 - Export/validation checks: `python -m unittest test_directory_sync -v`
-- Isolated access-boundary checks: `python -m unittest test_directory_sync_postgres -v`
+- Isolated access-boundary checks: `python -m unittest test_directory_sync_postgres test_directory_sync_query_postgres -v`
 
 ## Primary implementation references
 

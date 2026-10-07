@@ -110,3 +110,9 @@ The frontend is one module (`static/app.js`); the overriding `functional.js` and
 obsolete local-memory history implementation have been removed. Existing synthetic
 accounts are only seeded if REVIEW_PASSWORD is explicitly configured; there is no
 hardcoded default. Guest setup needs no credential configuration.
+
+### Guest retention cleanup
+
+The existing cleanup command and scheduled job now remove guest members only when no session has expires > cleanup time and no conversation has expires > cleanup time. Expired sessions/conversations are removed first, followed by eligible guests' preferences, corrections and member rows. Registered members are preserved. Pending correction reports belonging to deleted guests are deleted as requested.
+
+Dry-run remains the default and reports guest_members, preferences and corrections counts as well as existing expiry counts. --apply performs deletion in one transaction. PostgreSQL table write locks (reads remain available) and SQLite BEGIN IMMEDIATE prevent concurrent writes from invalidating eligibility; run during a quiet period for larger databases. No schema migration is required. Scheduled execution still requires SELFPAY_CLEANUP_DATABASE_URL to be configured; a code merge alone does not establish successful scheduled operation. Backup retention is separate.

@@ -53,14 +53,30 @@ class FunctionalTests(unittest.TestCase):
         self.assertIn('HttpOnly',h['Set-Cookie']);self.assertIn('SameSite=Strict',h['Set-Cookie'])
     def test_04_catalog_and_shared_search(self):
         a=self.sign_in();_,data,_=self.req('/api/catalog',auth=a)
-        self.assertEqual(len(data['entries']),44);self.assertEqual(len(data['offers']),13)
+        self.assertEqual(len(data['entries']),74);self.assertEqual(len(data['offers']),57)
         s=self.payload()['search'];_,classic,_=self.req('/api/search',s,auth=a)
         _,chat,_=self.req('/api/agent',{'message':'Find knee MRI without contrast near Cincinnati under $500','search':s},auth=a)
         self.assertEqual([o['id'] for o in classic['offers']],[o['id'] for o in chat['offers']])
-        self.assertEqual(classic['count'],2)
+        self.assertEqual(classic['count'],3)
     def test_05_contrast_variants(self):
         a=self.sign_in();s=self.payload()['search'];s['contrast']='both'
-        self.assertEqual(self.req('/api/search',s,auth=a)[1]['count'],0)
+        offers=self.req('/api/search',s,auth=a)[1]['offers']
+        self.assertTrue(all(o['contrast'] in ('both','unknown') for o in offers))
+        self.assertNotIn('aff-mri',[o['id'] for o in offers])
+    def test_new_directory_locations_and_scope(self):
+        base={'mod':'MRI','body':'Knee','contrast':'unknown','location':'Dayton, OH'}
+        data=core.catalog(self.db)
+        self.assertIn('Dayton, OH',data['locations'])
+        result=core.search(base,self.db)
+        self.assertGreaterEqual(result['count'],3)
+        self.assertTrue(all(o['type']=='quote' for o in result['offers']))
+        self.assertEqual(core.search({**base,'location':'Hilo, HI'},self.db)['count'],0)
+        brain=core.search({**base,'body':'Brain','location':'Hilo, HI'},self.db)['offers']
+        self.assertEqual(len(brain),1)
+        self.assertIsNone(brain[0]['amount'])
+        self.assertIn('facility component only',brain[0]['scope'])
+        self.assertEqual(core.search({**base,'mod':'CT','location':'St. Petersburg, FL'},self.db)['count'],0)
+        self.assertTrue(core.search({**base,'location':'Seminole, FL','contrast':'both'},self.db)['offers'])
     def test_06_no_match_no_silent_relaxation(self):
         a=self.sign_in();s=self.payload()['search'];s['location']='Not Researched'
         r=self.req('/api/search',s,auth=a)[1];self.assertEqual(r['count'],0);self.assertEqual(r['search']['location'],'Not Researched')
@@ -113,8 +129,8 @@ class FunctionalTests(unittest.TestCase):
         changed=core.stage_import(source,core.ROOT/'seed/mappings.json',self.db)
         self.assertEqual(changed['changed'],1);self.assertEqual(len(changed['withheld_offers']),3)
         self.assertEqual(core.catalog(self.db)['version'],original['version'])
-        core.publish(changed['id'],self.db);self.assertEqual(len(core.catalog(self.db)['offers']),10)
-        core.publish(original['version'],self.db);self.assertEqual(len(core.catalog(self.db)['offers']),13)
+        core.publish(changed['id'],self.db);self.assertEqual(len(core.catalog(self.db)['offers']),54)
+        core.publish(original['version'],self.db);self.assertEqual(len(core.catalog(self.db)['offers']),57)
     def test_18_invalid_import_atomic(self):
         source=Path(self.temp.name)/'invalid.json';source.write_text(json.dumps([{'name':'Bad source','source':'javascript:alert(1)','checked':'bad'}]))
         before=core.catalog(self.db)['version']

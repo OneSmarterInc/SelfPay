@@ -27,7 +27,7 @@ class PostgresIntegration(unittest.TestCase):
 
     def test_catalog_published(self):
         data = self.core.catalog(URL)
-        self.assertEqual((len(data['entries']), len(data['offers'])), (44, 13))
+        self.assertEqual((len(data['entries']), len(data['offers'])), (74, 57))
 
     def test_login_session_and_ownership(self):
         core = self.core
@@ -79,6 +79,10 @@ class PostgresIntegration(unittest.TestCase):
         self.assertGreaterEqual(cleanup(URL)['eligible_records']['sessions'],1)
         cleanup(URL,apply=True)
         self.assertIsNone(core.session(a['token'],URL))
+
+    def test_guest_dependency_cleanup(self):
+        from test_cleanup import check_guest_retention
+        check_guest_retention(self, URL)
 
     def test_failed_transaction_rolls_back(self):
         core = self.core

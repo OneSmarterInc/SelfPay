@@ -81,7 +81,7 @@ is historical; resuming searches reads current published data.
 ## Provider data and scope
 
 The catalog is read from the active published database batch. Starting research has
-44 directory entries and 13 mapped offers; entries may represent networks or programs,
+74 directory entries and 57 mapped offers; entries may represent networks or programs,
 not individual facilities. Fixed prices, starting prices, ranges, and quote-required
 listings must stay distinct. Stage and review source/mapping updates before publication.
 No evidence was freshly reverified as part of this code audit.
@@ -111,6 +111,23 @@ obsolete local-memory history implementation have been removed. Existing synthet
 accounts are only seeded if REVIEW_PASSWORD is explicitly configured; there is no
 hardcoded default. Guest setup needs no credential configuration.
 
+## October 5 provider directory update
+
+The bundle contains 74 researched directory entries and 57 MRI/CT offers. All 44 previous entries are retained. New quote-required and facility-only estimate listings preserve their original wording and are not displayed as all-in fixed prices. Other imaging is visible in the directory, not enabled as a search modality. Location suggestions come from the published catalog; ZIP/distance matching remains unavailable.
+
+To publish to the existing review database from Windows (DATABASE_URL in .env.local):
+
+```powershell
+cd D:\SelfPay
+py -3 -m pip install -r requirements.txt python-dotenv
+py -3 publish_directory.py
+py -3 publish_directory.py --apply
+```
+
+The first command stages and validates; the second publishes only if all 74 entries and 57 mapped offers pass. Save the printed previous_batch identifier for rollback through core.publish. This does not reset guests, sessions, history or preferences. Use a dedicated Preview database: publishing to a database shared with Production changes its data too, even without promoting a deployment.
+
+Review: Browse directory should show 74 entries. Search MRI / Knee / Dayton, OH for quote-required options; MRI / Knee / Seminole, FL for fixed contrast variants; MRI / Brain / Hilo, HI for the facility-only estimate wording and quote-required label. Hilo's brain offer must not appear for Knee.
+
 ### Global guest creation limits
 
 New guest identities are limited across all IPs and workers sharing the database:
@@ -128,3 +145,9 @@ member deletion is needed. Counters start at first use after deployment; they do
 not retrospectively count accounts made before the feature. Do not delete the
 quota settings row during retention cleanup. Environments sharing a database also
 share these limits. Per-guest conversation storage limits are a separate control.
+
+### Guest retention cleanup
+
+The existing cleanup command and scheduled job now remove guest members only when no session has expires > cleanup time and no conversation has expires > cleanup time. Expired sessions/conversations are removed first, followed by eligible guests' preferences, corrections and member rows. Registered members are preserved. Pending correction reports belonging to deleted guests are deleted as requested.
+
+Dry-run remains the default and reports guest_members, preferences and corrections counts as well as existing expiry counts. --apply performs deletion in one transaction. PostgreSQL table write locks (reads remain available) and SQLite BEGIN IMMEDIATE prevent concurrent writes from invalidating eligibility; run during a quiet period for larger databases. No schema migration is required. Scheduled execution still requires SELFPAY_CLEANUP_DATABASE_URL to be configured; a code merge alone does not establish successful scheduled operation. Backup retention is separate.

@@ -344,8 +344,9 @@ def preference(member,value=None,delete=False,path=DB):
 GUEST_LIMIT_MESSAGE = 'Guest preview limit reached. Full access is coming with MySelfPay accounts.'
 
 class GuestAgentLimited(Exception):
-    def __init__(self, retry_after=0):
+    def __init__(self, retry_after=0, reason="session"):
         self.retry_after=retry_after
+        self.reason=reason
         super().__init__(GUEST_LIMIT_MESSAGE)
 
 def lock_usage(db):
@@ -362,7 +363,7 @@ def consume_windows(db, limits, agent=False):
         row=db.execute('SELECT attempts FROM login_limits WHERE key=? AND window_id=?',(key,start)).fetchone()
         if row and row['attempts']>=limit:
             retry=max(1,int((int(now//seconds)+1)*seconds-now)+1)
-            raise GuestAgentLimited(retry) if agent else GuestCreationLimited(retry)
+            raise GuestAgentLimited(retry, "hourly" if seconds==3600 else "daily") if agent else GuestCreationLimited(retry)
         db.execute('INSERT INTO login_limits VALUES(?,?,1) ON CONFLICT(key,window_id) DO UPDATE SET attempts=login_limits.attempts+1',(key,start))
 
 def guest_usage(token, path=DB):
@@ -374,7 +375,7 @@ def guest_usage(token, path=DB):
 def guest_agent(token, ip, message, raw, conversation_id, limits, path=DB):
     conversations,messages,characters,per_ip,global_day=limits
     if not isinstance(message,str) or not message.strip():raise ValueError('Enter a message')
-    if len(message)>characters:raise GuestAgentLimited()
+    if len(message)>characters:raise GuestAgentLimited(reason="characters")
     if conversation_id is not None and not isinstance(conversation_id,str):raise ValueError('Invalid conversation')
     # Validate and compute without retaining member-entered content.
     answer=agent(message,raw,path)
@@ -389,7 +390,7 @@ def guest_agent(token, ip, message, raw, conversation_id, limits, path=DB):
             if len(usage)>=conversations:raise GuestAgentLimited()
             conversation_id=str(uuid.uuid4())
         elif conversation_id not in usage:raise ValueError('Conversation unavailable in this guest session')
-        if usage.get(conversation_id,0)>=messages:raise GuestAgentLimited()
+        if usage.get(conversation_id,0)>=messages:raise GuestAgentLimited(reason="conversation")
         consume_windows(db,[('guest-agent-ip:'+ip,3600,per_ip),('guest-agent-global',86400,global_day)],agent=True)
         usage[conversation_id]=usage.get(conversation_id,0)+1
         db.execute('INSERT INTO guest_usage VALUES(?,?,?) ON CONFLICT(session_hash) DO UPDATE SET payload=excluded.payload',(key,member['member_id'],canonical(usage)))

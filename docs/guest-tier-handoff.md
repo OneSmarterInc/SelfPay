@@ -70,3 +70,17 @@ The connected Vercel account cannot access the project, so this setting has not
 been changed or evidenced. Do not call it completed. Do not share bypass tokens.
 The cleanup database secret/role and successful scheduled execution likewise need
 owner verification. No production promotion is authorized.
+
+## Follow-up verification — 2026-10-07
+
+User authorized merge to main after fixes; production promotion remains out of scope.
+The user applied the guest_usage migration and confirmed the permission command succeeded.
+A screenshot verifies its three text columns. The exact Preview database binding was not independently accessible.
+Unauthenticated access to the supplied Preview redirects to Vercel SSO, confirming protection on that URL; project-wide settings remain unverified.
+User confirmed refresh preserves an exhausted allowance. Signing out and starting another guest session renews session limits by design; shared IP/global counters remain enforced.
+
+Follow-up code removes the sticky composer overlapping the new-conversation button, disables voice when chat is exhausted, and explains hourly/daily vs conversation/session limits while preserving the required error wording. A client regression reloads three exhausted counters and verifies disabled controls without storing chat text. Backend tests check hourly/daily reason codes.
+
+Operational items still open: provision and verify the restricted cleanup role and secret, run scheduled cleanup with it, and resolve owner BAA/PHI handling decisions before real healthcare data. No credentials or contracts were changed.
+
+Directory spot-check: SARA official self-pay page retrieved on Oct 7 matches the listed breast MRI and mammography/ultrasound prices, pay-at-service and no-insurance-billing scope; other services require a quote. Source: https://www.sararadiology.com/self-pay-pricing/ . Express MRI Birmingham source timed out; it was not reverified. This is a partial spot-check, not certification of the full directory. Existing verification dates have not been advanced.

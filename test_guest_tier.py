@@ -41,12 +41,14 @@ class AgentChecks:
                 for _ in range(3):
                     r=self.send(g)
                     for _ in range(4):self.send(g,r['conversation_id'])
-            with self.assertRaises(core.GuestAgentLimited):self.send(guests[2])
+            with self.assertRaises(core.GuestAgentLimited) as caught:self.send(guests[2])
+            self.assertEqual(caught.exception.reason,"hourly")
             self.send(guests[2],ip='other-ip')
             with core.connect(self.db) as db:
                 db.execute('UPDATE login_limits SET attempts=1999 WHERE key=?',(hashlib.sha256(b'guest-agent-global').hexdigest(),))
             self.send(guests[2],ip='third-ip')
-            with self.assertRaises(core.GuestAgentLimited):self.send(guests[2],ip='fourth-ip')
+            with self.assertRaises(core.GuestAgentLimited) as caught:self.send(guests[2],ip='fourth-ip')
+            self.assertEqual(caught.exception.reason,"daily")
         with patch('core.time.time',return_value=259200):
             g=core.guest_login(self.db);self.send(g)
     def test_hour_rollover_releases_ip_limit(self):

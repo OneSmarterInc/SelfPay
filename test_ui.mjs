@@ -2,6 +2,7 @@
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
 const entries=JSON.parse(fs.readFileSync('seed/directory.json','utf8'));
 const offers=JSON.parse(fs.readFileSync('seed/mappings.json','utf8')).map(o=>({...o,entry:entries.find(e=>e.name===o.entry_name),version:'test-version'}));
+let storedUsage={};
 let signedIn=false,conversations=[],failSave=false,failCatalog=false,limitReached=false,saveAttempts=0;
 const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',innerHTML:'',textContent:'',classList:{add(){},remove(){}},showModal(){},close(){},checked:false});return nodes.get(id)};
 const fetch=async(url,options={})=>{
@@ -11,7 +12,7 @@ const fetch=async(url,options={})=>{
   if(url==='/api/guest'){signedIn=true;body={csrf:'demo-test',member:{id:'a',tenant:'guest',name:'Alex',email:'alex.a@example.test'}}}
   else if(!signedIn){status=401;body={error:'Sign in'}}
   else if(url==='/api/catalog')body={entries,offers,version:'test-version'};
-  else if(url==='/api/guest-usage')body={usage:{}};
+  else if(url==='/api/guest-usage')body={usage:storedUsage};
   else if(url==='/api/preferences')body={};
   else if(url==='/api/search'||url==='/api/agent'){
     const raw=input.search||input;const search=Object.fromEntries(['mod','body','contrast','location','budget','type','sort','selected'].map(k=>[k,raw[k]]));
@@ -94,6 +95,15 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   failCatalog=false;
   await vm.runInContext('start()',ctx);
   assert.match(node('app').innerHTML,/How would you like to begin/);
+  storedUsage={'chat-a':5,'chat-b':5,'chat-c':5};
+  await vm.runInContext('start()',ctx);
+  await vm.runInContext('enterJourney("agent")',ctx);
+  assert.equal(vm.runInContext('chatDisabled()',ctx),true);
+  assert.match(node('app').innerHTML,/id="message"[^>]*disabled/);
+  assert.match(node('app').innerHTML,/id="newGuestChat"[^>]*disabled/);
+  assert.match(node('app').innerHTML,/id="voice"[^>]*disabled/);
+  assert.equal(vm.runInContext('state.messages.length',ctx),0);
+  storedUsage={};
   await vm.runInContext('api("/logout",{})',ctx);
   const rejected=await vm.runInContext('api("/catalog").then(()=>false).catch(()=>true)',ctx);assert.equal(rejected,true);
   assert.equal(node('profile').textContent,'Sign in as guest');

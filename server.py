@@ -136,7 +136,7 @@ class Handler(BaseHTTPRequestHandler):
     def dispatch(self,method):
         try:self.route_selfpay_request(method)
         except core.GuestAgentLimited as exc:
-            self.respond(429,{'error':str(exc),'code':'guest_preview_limit','retry_after':exc.retry_after},retry_after=exc.retry_after or None)
+            self.respond(429,{'error':str(exc),'code':'guest_preview_limit','reason':exc.reason,'retry_after':exc.retry_after},retry_after=exc.retry_after or None)
         except core.GuestCreationLimited as exc:
             self.respond(429,{'error':str(exc),'code':'guest_creation_limit','retry_after':exc.retry_after},retry_after=exc.retry_after)
         except PermissionError:self.respond(404,{'error':'Record unavailable'})

@@ -1,9 +1,6 @@
 # Cleanup database role setup
 
-Current application access is guest-only. The historical register, login,
-change_password and PBKDF2 functions in core.py are explicitly marked legacy
-compatibility code. Their HTTP routes return 410. They are not active sign-in
-paths; removing historical schema/test compatibility is a separate migration.
+The old password authentication functions and their tests have been removed.
 
 ## Activate the restricted cleanup connection
 
@@ -18,7 +15,7 @@ paths; removing historical schema/test compatibility is a separate migration.
    role and the intended database. Do not change the application's DATABASE_URL.
 5. Run Daily retention cleanup manually with apply=false. Review counts, then
    run with apply=true. Confirm the next scheduled run succeeds.
-6. Verify the role can SELECT/DELETE on the six named tables but cannot
+6. Verify the role can SELECT/DELETE on the seven named tables (including guest_usage) but cannot
    INSERT/UPDATE there, read provider entries/offers/settings, or CREATE tables.
    SELECT/DELETE permissions also support the table locks introduced in PR #5.
 
@@ -26,6 +23,6 @@ No live role, password or GitHub secret has been provisioned by this change.
 The old cleanup secret remains in effect until the owner replaces it.
 
 These grants restrict table operations, not which rows may be deleted: the
-cleanup program enforces expiry and guest eligibility. A stored-procedure-only
+cleanup program enforces expiry and guest eligibility (no live session). A stored-procedure-only
 role would provide tighter row-level control if required before real data use.
 This setup alone does not authorize PHI use or establish regulatory compliance.

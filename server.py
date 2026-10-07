@@ -11,7 +11,13 @@ import core
 
 # Per-minute limits. Keying by email+IP (not email alone) stops one attacker locking out a member;
 # the IP and email ceilings still cap credential stuffing and distributed guessing.
-LIMITS={'login_pair':10,'login_ip':60,'login_email':100,'register_ip':5,'register_global':100,'password':20,'guest_ip':20}
+LIMITS={'guest_ip':20}
+GUEST_CONVERSATIONS = 3
+GUEST_MESSAGES = 5
+GUEST_MESSAGE_CHARACTERS = 500
+GUEST_AGENT_PER_IP_HOUR = 30
+GUEST_AGENT_GLOBAL_DAY = 2000
+
 
 class Handler(BaseHTTPRequestHandler):
     server_version='MySelfPayPOC'
@@ -88,12 +94,22 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(403,{'error':'CSRF token required'})
         if path=='/api/me' and method=='GET':return self.respond(200,{'member':{k:v for k,v in member.items() if k!='csrf'},'csrf':member['csrf']})
         if path=='/api/logout' and method=='POST':
-            with core.connect(db) as con:con.execute('DELETE FROM sessions WHERE token_hash=?',(hashlib.sha256(self.token().encode()).hexdigest(),))
+            with core.connect(db) as con:
+                key=hashlib.sha256(self.token().encode()).hexdigest()
+                con.execute('DELETE FROM guest_usage WHERE session_hash=?',(key,))
+                con.execute('DELETE FROM sessions WHERE token_hash=?',(key,))
             return self.respond(200,{'ok':True},cookie=self.session_cookie())
         if path=='/api/catalog' and method=='GET':return self.respond(200,core.catalog(db))
         if path=='/api/search' and method=='POST':return self.respond(200,core.search(self.payload(),db))
+        if path=='/api/guest-usage' and method=='GET':
+            return self.respond(200,{'usage':core.guest_usage(self.token(),db)})
         if path=='/api/agent' and method=='POST':
-            data=self.payload();return self.respond(200,core.agent(data.get('message'),data.get('search',{}),db))
+            data=self.payload()
+            if member['tenant']=='guest':
+                return self.respond(200,core.guest_agent(self.token(),self.client_ip(),data.get('message'),data.get('search',{}),data.get('conversation_id'),(GUEST_CONVERSATIONS,GUEST_MESSAGES,GUEST_MESSAGE_CHARACTERS,GUEST_AGENT_PER_IP_HOUR,GUEST_AGENT_GLOBAL_DAY),db))
+            return self.respond(200,core.agent(data.get('message'),data.get('search',{}),db))
+        if member['tenant']=='guest' and (path=='/api/corrections' or (path.startswith('/api/conversations') and method!='GET')):
+            return self.respond(403,{'error':'Guest content is not stored. Full access is coming with MySelfPay accounts.'})
         if path=='/api/conversations':
             if method=='GET':return self.respond(200,{'conversations':core.history(member,db)})
             if method=='POST':return self.respond(200,core.save_conversation(member,self.payload(),db))
@@ -119,6 +135,8 @@ class Handler(BaseHTTPRequestHandler):
         return self.respond(404,{'error':'Not found'})
     def dispatch(self,method):
         try:self.route_selfpay_request(method)
+        except core.GuestAgentLimited as exc:
+            self.respond(429,{'error':str(exc),'code':'guest_preview_limit','reason':exc.reason,'retry_after':exc.retry_after},retry_after=exc.retry_after or None)
         except core.GuestCreationLimited as exc:
             self.respond(429,{'error':str(exc),'code':'guest_creation_limit','retry_after':exc.retry_after},retry_after=exc.retry_after)
         except PermissionError:self.respond(404,{'error':'Record unavailable'})

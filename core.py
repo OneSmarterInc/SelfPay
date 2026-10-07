@@ -14,27 +14,6 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent
 DB = os.environ.get('DATABASE_URL') or ROOT / 'data' / 'myselfpay.sqlite3'
-DEMO_PASSWORD = os.environ.get('REVIEW_PASSWORD')
-ACCOUNTS = [('alex.a@example.test','plan-a','Alex'), ('sam.a@example.test','plan-a','Sam'),
-            ('alex.b@example.test','plan-b','Alex'), ('jordan.b@example.test','plan-b','Jordan')]
-
-# LEGACY COMPATIBILITY ONLY: password HTTP routes return 410; guest sign-in is active.
-# PBKDF2 and registration/password helpers below remain for historical tests only.
-PBKDF2_ITERATIONS = 600000  # OWASP 2023 guidance for PBKDF2-HMAC-SHA256
-LEGACY_ITERATIONS = 200000  # hashes stored before the upgrade are bare hex at this count
-
-def hash_password(password, salt_hex, iterations=PBKDF2_ITERATIONS):
-    raw = hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt_hex), iterations).hex()
-    return raw if iterations == LEGACY_ITERATIONS else f'pbkdf2${iterations}${raw}'
-
-def verify_password(password, salt_hex, stored):
-    """Constant-time check that accepts current and legacy hash formats."""
-    iterations = int(stored.split('$')[1]) if stored.startswith('pbkdf2$') else LEGACY_ITERATIONS
-    return hmac.compare_digest(hash_password(password, salt_hex, iterations), stored)
-
-def needs_rehash(stored):
-    return not stored.startswith(f'pbkdf2${PBKDF2_ITERATIONS}$')
-
 def canonical(value):
     return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(',', ':'))
 
@@ -73,6 +52,8 @@ def initialize(path=DB):
             member_id TEXT REFERENCES members(id), title TEXT NOT NULL, payload TEXT NOT NULL,
             updated REAL NOT NULL, expires REAL NOT NULL);
         CREATE INDEX IF NOT EXISTS conversation_owner ON conversations(tenant,member_id);
+        CREATE TABLE IF NOT EXISTS login_limits(key TEXT NOT NULL, window_id BIGINT NOT NULL, attempts INTEGER NOT NULL, PRIMARY KEY(key,window_id));
+        CREATE TABLE IF NOT EXISTS guest_usage(session_hash TEXT PRIMARY KEY REFERENCES sessions(token_hash), member_id TEXT NOT NULL REFERENCES members(id), payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS preferences(member_id TEXT PRIMARY KEY REFERENCES members(id),
             tenant TEXT NOT NULL, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS corrections(id TEXT PRIMARY KEY, tenant TEXT NOT NULL,
@@ -80,11 +61,6 @@ def initialize(path=DB):
             category TEXT NOT NULL, description TEXT NOT NULL, created REAL NOT NULL, status TEXT NOT NULL);
         ''')
         db.execute('PRAGMA secure_delete=ON')
-        for email, tenant, name in (ACCOUNTS if DEMO_PASSWORD else []):
-            if db.execute('SELECT 1 FROM members WHERE email=?', (email,)).fetchone(): continue
-            salt = secrets.token_hex(16)
-            pw = hash_password(DEMO_PASSWORD, salt)
-            db.execute('INSERT INTO members VALUES(?,?,?,?,?,?)', (str(uuid.uuid4()),tenant,email,name,salt,pw))
     try: os.chmod(path,0o600)
     except OSError: pass
 
@@ -283,41 +259,6 @@ def agent(message,raw,path=DB):
         reply+=' Some listings have unconfirmed contrast or protocol. A published amount below your budget does not confirm that it covers your requested exam or all fees; ask the facility for the exact total.'
     return {'reply':reply,**result,'agent_mode':'deterministic-demo'}
 
-# UNUSED LEGACY PASSWORD HELPERS: no active HTTP callers.
-def normalize_email(email):
-    import re
-    if not isinstance(email,str):raise ValueError('Enter a valid email address')
-    email=email.strip().casefold()
-    if len(email)>200 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email):
-        raise ValueError('Enter a valid email address')
-    return email
-
-def password_fields(password):
-    if not isinstance(password,str) or not 8<=len(password)<=200:
-        raise ValueError('Use a password between 8 and 200 characters')
-    salt=secrets.token_hex(16)
-    return salt,hash_password(password,salt)
-
-def register(name,email,password,path=DB):
-    email=normalize_email(email)
-    if not isinstance(name,str) or not 1<=len(name.strip())<=80:raise ValueError('Enter a name of 1–80 characters')
-    salt,hashed=password_fields(password)
-    with connect(path) as db:
-        # Same response whether or not the email exists, so registration cannot be used to probe accounts.
-        db.execute('INSERT INTO members VALUES(?,?,?,?,?,?) ON CONFLICT(email) DO NOTHING',
-            (str(uuid.uuid4()),'review',email,name.strip(),salt,hashed))
-    return {'ok':True,'message':'If this email can be registered, your account is ready. Sign in to continue.'}
-
-def change_password(member,current_password,new_password,path=DB):
-    if not isinstance(current_password,str) or len(current_password)>200:raise ValueError('Current password is incorrect')
-    salt,hashed=password_fields(new_password)
-    with connect(path) as db:
-        row=db.execute('SELECT salt,password_hash FROM members WHERE id=? AND tenant=?',(member['id'],member['tenant'])).fetchone()
-        if not row or not verify_password(current_password,row['salt'],row['password_hash']):raise ValueError('Current password is incorrect')
-        db.execute('UPDATE members SET salt=?,password_hash=? WHERE id=? AND tenant=?',(salt,hashed,member['id'],member['tenant']))
-        db.execute('DELETE FROM sessions WHERE member_id=?',(member['id'],))
-    return {'ok':True}
-
 class GuestCreationLimited(Exception):
     def __init__(self, retry_after):
         self.retry_after = retry_after
@@ -331,24 +272,10 @@ def reserve_guest_creation(db):
     The write locks that row on PostgreSQL and the writer on SQLite.
     Failed creation rolls the reservation back; rejected requests add no rows.
     """
-    minute_limit = int(os.environ.get('GUEST_GLOBAL_PER_MINUTE', '100'))
-    day_limit = int(os.environ.get('GUEST_GLOBAL_PER_DAY', '1000'))
-    if minute_limit < 1 or day_limit < 1:
-        raise RuntimeError('Guest creation limits must be positive')
-    key = 'guest_creation_quota'
-    db.execute('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO NOTHING', (key,'{}'))
-    db.execute('UPDATE settings SET value=value WHERE key=?', (key,))
-    now = time.time()  # Use the time after acquiring the lock.
-    minute, day = int(now//60), int(now//86400)
-    data = json.loads(db.execute('SELECT value FROM settings WHERE key=?', (key,)).fetchone()['value'])
-    minute_count = data.get('minute_count',0) if data.get('minute') == minute else 0
-    day_count = data.get('day_count',0) if data.get('day') == day else 0
-    if day_count >= day_limit:
-        raise GuestCreationLimited(max(1,int((day+1)*86400-now)+1))
-    if minute_count >= minute_limit:
-        raise GuestCreationLimited(max(1,int((minute+1)*60-now)+1))
-    db.execute('UPDATE settings SET value=? WHERE key=?',
-               (canonical({'minute':minute,'day':day,'minute_count':minute_count+1,'day_count':day_count+1}),key))
+    hour_limit = int(os.environ.get('GUEST_GLOBAL_PER_HOUR', '200'))
+    day_limit = int(os.environ.get('GUEST_GLOBAL_PER_DAY', '2000'))
+    lock_usage(db)
+    consume_windows(db, [('guest-create-hour',3600,hour_limit),('guest-create-day',86400,day_limit)])
 
 
 def guest_login(path=DB):
@@ -362,34 +289,19 @@ def guest_login(path=DB):
             (hashlib.sha256(token.encode()).hexdigest(),ident,csrf,time.time()+8*3600))
     return {'token':token,'csrf':csrf,'member':{'id':ident,'tenant':'guest','name':'Guest'}}
 
-def login(email,password,path=DB):
-    """Legacy compatibility only; disabled HTTP endpoint."""
-    email=normalize_email(email)
-    if not isinstance(password,str) or len(password)>200:return None
-    with connect(path) as db:
-        row=db.execute('SELECT * FROM members WHERE email=?',(email,)).fetchone()
-        if not row:
-            hash_password(password,'00'*16)  # equal work for unknown emails (no enumeration by timing)
-            return None
-        if not verify_password(password,row['salt'],row['password_hash']):return None
-        if needs_rehash(row['password_hash']):
-            salt=secrets.token_hex(16);hashed=hash_password(password,salt)
-            db.execute('UPDATE members SET salt=?,password_hash=? WHERE id=?',(salt,hashed,row['id']))
-        token=secrets.token_urlsafe(32);csrf=secrets.token_urlsafe(24)
-        db.execute('INSERT INTO sessions VALUES(?,?,?,?)',(hashlib.sha256(token.encode()).hexdigest(),row['id'],csrf,time.time()+8*3600))
-        return {'token':token,'csrf':csrf,'member':{'id':row['id'],'tenant':row['tenant'],'name':row['name'],'email':row['email']}}
-
 def session(token,path=DB):
     with connect(path) as db:
         row=db.execute('SELECT m.id,m.tenant,m.name,m.email,s.csrf FROM sessions s JOIN members m ON m.id=s.member_id WHERE s.token_hash=? AND s.expires>?',(hashlib.sha256(token.encode()).hexdigest(),time.time())).fetchone()
         return dict(row) if row else None
 
 def history(member,path=DB):
+    if member['tenant']=='guest':return []
     with connect(path) as db:
         db.execute('PRAGMA secure_delete=ON')
         return [{'id':r['id'],'title':r['title'],'updated':r['updated']*1000,'expires':r['expires']*1000,**json.loads(r['payload'])} for r in db.execute('SELECT * FROM conversations WHERE tenant=? AND member_id=? AND expires>? ORDER BY updated DESC',(member['tenant'],member['id'],time.time()))]
 
 def save_conversation(member,data,path=DB):
+    if member['tenant']=='guest':raise PermissionError('Guest conversations cannot be saved')
     if data.get('private'):raise ValueError('Private conversations cannot be persisted')
     ident=data.get('id') or str(uuid.uuid4());messages=data.get('messages',[])
     if not isinstance(messages,list) or not 0<=len(messages)<=200:raise ValueError('History must contain at most 200 messages')
@@ -419,6 +331,67 @@ def preference(member,value=None,delete=False,path=DB):
         if delete:db.execute('DELETE FROM preferences WHERE member_id=? AND tenant=?',(member['id'],member['tenant']))
         elif value is not None:
             location=str(value.get('location',''))[:120]
+            if member['tenant']=='guest':
+                choices=[label for label,city in location_choices(catalog(path)['entries'])]
+                if location not in choices:raise ValueError('Choose a listed location; free-text preferences are not saved')
             db.execute('INSERT INTO preferences VALUES(?,?,?) ON CONFLICT(member_id) DO UPDATE SET payload=excluded.payload',(member['id'],member['tenant'],canonical({'location':location})))
         row=db.execute('SELECT payload FROM preferences WHERE member_id=? AND tenant=?',(member['id'],member['tenant'])).fetchone()
-        return json.loads(row['payload']) if row else {}
+        result=json.loads(row['payload']) if row else {}
+    if member['tenant']=='guest' and result.get('location') not in [label for label,city in location_choices(catalog(path)['entries'])]:return {}
+    return result
+
+
+GUEST_LIMIT_MESSAGE = 'Guest preview limit reached. Full access is coming with MySelfPay accounts.'
+
+class GuestAgentLimited(Exception):
+    def __init__(self, retry_after=0, reason="session"):
+        self.retry_after=retry_after
+        self.reason=reason
+        super().__init__(GUEST_LIMIT_MESSAGE)
+
+def lock_usage(db):
+    # Persistent singleton write lock: admission and counters commit together.
+    db.execute("INSERT INTO settings(key,value) VALUES('guest_usage_lock','1') ON CONFLICT(key) DO NOTHING")
+    db.execute("UPDATE settings SET value=value WHERE key='guest_usage_lock'")
+
+def consume_windows(db, limits, agent=False):
+    now=time.time()
+    for name,seconds,limit in limits:
+        if limit<1:raise RuntimeError('Limits must be positive')
+        key=hashlib.sha256(name.encode()).hexdigest()
+        start=int(now//seconds)*seconds//60
+        row=db.execute('SELECT attempts FROM login_limits WHERE key=? AND window_id=?',(key,start)).fetchone()
+        if row and row['attempts']>=limit:
+            retry=max(1,int((int(now//seconds)+1)*seconds-now)+1)
+            raise GuestAgentLimited(retry, "hourly" if seconds==3600 else "daily") if agent else GuestCreationLimited(retry)
+        db.execute('INSERT INTO login_limits VALUES(?,?,1) ON CONFLICT(key,window_id) DO UPDATE SET attempts=login_limits.attempts+1',(key,start))
+
+def guest_usage(token, path=DB):
+    key=hashlib.sha256(token.encode()).hexdigest()
+    with connect(path) as db:
+        row=db.execute('SELECT payload FROM guest_usage WHERE session_hash=?',(key,)).fetchone()
+    return json.loads(row['payload']) if row else {}
+
+def guest_agent(token, ip, message, raw, conversation_id, limits, path=DB):
+    conversations,messages,characters,per_ip,global_day=limits
+    if not isinstance(message,str) or not message.strip():raise ValueError('Enter a message')
+    if len(message)>characters:raise GuestAgentLimited(reason="characters")
+    if conversation_id is not None and not isinstance(conversation_id,str):raise ValueError('Invalid conversation')
+    # Validate and compute without retaining member-entered content.
+    answer=agent(message,raw,path)
+    key=hashlib.sha256(token.encode()).hexdigest()
+    with connect(path) as db:
+        lock_usage(db)
+        member=db.execute("SELECT s.member_id FROM sessions s JOIN members m ON m.id=s.member_id WHERE s.token_hash=? AND s.expires>? AND m.tenant='guest'",(key,time.time())).fetchone()
+        if not member:raise PermissionError('Session expired')
+        row=db.execute('SELECT payload FROM guest_usage WHERE session_hash=?',(key,)).fetchone()
+        usage=json.loads(row['payload']) if row else {}
+        if conversation_id is None:
+            if len(usage)>=conversations:raise GuestAgentLimited()
+            conversation_id=str(uuid.uuid4())
+        elif conversation_id not in usage:raise ValueError('Conversation unavailable in this guest session')
+        if usage.get(conversation_id,0)>=messages:raise GuestAgentLimited(reason="conversation")
+        consume_windows(db,[('guest-agent-ip:'+ip,3600,per_ip),('guest-agent-global',86400,global_day)],agent=True)
+        usage[conversation_id]=usage.get(conversation_id,0)+1
+        db.execute('INSERT INTO guest_usage VALUES(?,?,?) ON CONFLICT(session_hash) DO UPDATE SET payload=excluded.payload',(key,member['member_id'],canonical(usage)))
+    return {**answer,'conversation_id':conversation_id,'usage':usage}

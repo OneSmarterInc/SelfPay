@@ -7,7 +7,7 @@ END $$;
 GRANT USAGE ON SCHEMA public TO selfpay_cleanup;
 GRANT SELECT, DELETE ON TABLE
   public.members, public.sessions, public.conversations,
-  public.preferences, public.corrections, public.login_limits
+  public.preferences, public.corrections, public.login_limits, public.guest_usage
 TO selfpay_cleanup;
 -- Set the password separately with psql: \password selfpay_cleanup
 -- Never commit a password or a connection string.

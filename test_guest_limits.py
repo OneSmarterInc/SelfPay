@@ -10,13 +10,14 @@ import core
 class GuestLimitChecks:
     def clear_quota(self):
         with core.connect(self.db) as db:
-            db.execute("DELETE FROM settings WHERE key='guest_creation_quota'")
+            db.execute("DELETE FROM settings WHERE key='guest_usage_lock'")
+            db.execute("DELETE FROM login_limits")
     def count_guests(self):
         with core.connect(self.db) as db:
             return db.execute("SELECT COUNT(*) AS n FROM members WHERE tenant='guest'").fetchone()['n']
     def test_minute_and_day_limits(self):
         self.clear_quota()
-        with patch.dict(os.environ,{'GUEST_GLOBAL_PER_MINUTE':'2','GUEST_GLOBAL_PER_DAY':'3'}):
+        with patch.dict(os.environ,{'GUEST_GLOBAL_PER_HOUR':'2','GUEST_GLOBAL_PER_DAY':'3'}):
             with patch('core.time.time',return_value=172800):
                 guest=core.guest_login(self.db)
                 core.guest_login(self.db)
@@ -24,7 +25,7 @@ class GuestLimitChecks:
                 with self.assertRaises(core.GuestCreationLimited):core.guest_login(self.db)
                 self.assertEqual(self.count_guests(),before)
                 self.assertIsNotNone(core.session(guest['token'],self.db))
-            with patch('core.time.time',return_value=172861):
+            with patch('core.time.time',return_value=176401):
                 core.guest_login(self.db)
                 with self.assertRaises(core.GuestCreationLimited) as error:core.guest_login(self.db)
                 self.assertGreater(error.exception.retry_after,60)
@@ -32,7 +33,7 @@ class GuestLimitChecks:
     def test_concurrent_admission(self):
         self.clear_quota()
         before=self.count_guests()
-        with patch.dict(os.environ,{'GUEST_GLOBAL_PER_MINUTE':'3','GUEST_GLOBAL_PER_DAY':'3'}),patch('core.time.time',return_value=345600):
+        with patch.dict(os.environ,{'GUEST_GLOBAL_PER_HOUR':'3','GUEST_GLOBAL_PER_DAY':'3'}),patch('core.time.time',return_value=345600):
             def attempt(_):
                 try:core.guest_login(self.db);return True
                 except core.GuestCreationLimited:return False
@@ -46,21 +47,21 @@ class GuestLimitChecks:
         with patch('core.uuid.uuid4',return_value='collision'):
             with self.assertRaises(Exception):core.guest_login(self.db)
         with core.connect(self.db) as db:
-            row=db.execute("SELECT value FROM settings WHERE key='guest_creation_quota'").fetchone()
+            row=db.execute("SELECT value FROM settings WHERE key='guest_usage_lock'").fetchone()
             self.assertIsNone(row)
             db.execute("DELETE FROM members WHERE id='collision'")
 
 class SQLiteGuestLimits(GuestLimitChecks, unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.db=Path(self.temp.name)/'test.sqlite'
-        with patch.object(core,'DEMO_PASSWORD',None):core.initialize(self.db)
+        core.initialize(self.db)
     def tearDown(self):self.temp.cleanup()
 
 @unittest.skipUnless(os.environ.get('TEST_DATABASE_URL'),'Disposable PostgreSQL database required')
 class PostgresGuestLimits(GuestLimitChecks,unittest.TestCase):
     def setUp(self):
         self.db=os.environ['TEST_DATABASE_URL']
-        with patch.object(core,'DEMO_PASSWORD',None):core.initialize(self.db)
+        core.initialize(self.db)
 
 class GuestLimitResponse(unittest.TestCase):
     def test_http_429_and_retry_after(self):

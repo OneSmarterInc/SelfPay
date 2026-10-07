@@ -127,3 +127,27 @@ py -3 publish_directory.py --apply
 The first command stages and validates; the second publishes only if all 74 entries and 57 mapped offers pass. Save the printed previous_batch identifier for rollback through core.publish. This does not reset guests, sessions, history or preferences. Use a dedicated Preview database: publishing to a database shared with Production changes its data too, even without promoting a deployment.
 
 Review: Browse directory should show 74 entries. Search MRI / Knee / Dayton, OH for quote-required options; MRI / Knee / Seminole, FL for fixed contrast variants; MRI / Brain / Hilo, HI for the facility-only estimate wording and quote-required label. Hilo's brain offer must not appear for Knee.
+
+### Global guest creation limits
+
+New guest identities are limited across all IPs and workers sharing the database:
+100 per UTC clock minute and 1,000 per UTC calendar day by default. Set positive
+integer server variables GUEST_GLOBAL_PER_MINUTE / GUEST_GLOBAL_PER_DAY to adjust.
+These are fixed windows, not rolling windows. The existing 20/minute per-IP
+request limit remains. Existing guest sessions do not consume global admissions.
+At capacity the API returns 429 with Retry-After and an explanation shown by the
+existing sign-in error handler. Database errors fail closed.
+
+One settings row (guest_creation_quota) holds both counters; row locking and guest
+creation share a transaction, so concurrent workers cannot overshoot and failed
+account creation does not consume quota. No schema migration, reset, or historical
+member deletion is needed. Counters start at first use after deployment; they do
+not retrospectively count accounts made before the feature. Do not delete the
+quota settings row during retention cleanup. Environments sharing a database also
+share these limits. Per-guest conversation storage limits are a separate control.
+
+### Guest retention cleanup
+
+The existing cleanup command and scheduled job now remove guest members only when no session has expires > cleanup time and no conversation has expires > cleanup time. Expired sessions/conversations are removed first, followed by eligible guests' preferences, corrections and member rows. Registered members are preserved. Pending correction reports belonging to deleted guests are deleted as requested.
+
+Dry-run remains the default and reports guest_members, preferences and corrections counts as well as existing expiry counts. --apply performs deletion in one transaction. PostgreSQL table write locks (reads remain available) and SQLite BEGIN IMMEDIATE prevent concurrent writes from invalidating eligibility; run during a quiet period for larger databases. No schema migration is required. Scheduled execution still requires SELFPAY_CLEANUP_DATABASE_URL to be configured; a code merge alone does not establish successful scheduled operation. Backup retention is separate.

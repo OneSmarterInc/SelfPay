@@ -18,6 +18,8 @@ DEMO_PASSWORD = os.environ.get('REVIEW_PASSWORD')
 ACCOUNTS = [('alex.a@example.test','plan-a','Alex'), ('sam.a@example.test','plan-a','Sam'),
             ('alex.b@example.test','plan-b','Alex'), ('jordan.b@example.test','plan-b','Jordan')]
 
+# LEGACY COMPATIBILITY ONLY: password HTTP routes return 410; guest sign-in is active.
+# PBKDF2 and registration/password helpers below remain for historical tests only.
 PBKDF2_ITERATIONS = 600000  # OWASP 2023 guidance for PBKDF2-HMAC-SHA256
 LEGACY_ITERATIONS = 200000  # hashes stored before the upgrade are bare hex at this count
 
@@ -281,6 +283,7 @@ def agent(message,raw,path=DB):
         reply+=' Some listings have unconfirmed contrast or protocol. A published amount below your budget does not confirm that it covers your requested exam or all fees; ask the facility for the exact total.'
     return {'reply':reply,**result,'agent_mode':'deterministic-demo'}
 
+# UNUSED LEGACY PASSWORD HELPERS: no active HTTP callers.
 def normalize_email(email):
     import re
     if not isinstance(email,str):raise ValueError('Enter a valid email address')
@@ -315,10 +318,44 @@ def change_password(member,current_password,new_password,path=DB):
         db.execute('DELETE FROM sessions WHERE member_id=?',(member['id'],))
     return {'ok':True}
 
+class GuestCreationLimited(Exception):
+    def __init__(self, retry_after):
+        self.retry_after = retry_after
+        super().__init__('Guest sign-in is temporarily at capacity. Please try again later.')
+
+
+def reserve_guest_creation(db):
+    """Serialize admission in the same transaction as account creation.
+
+    One persistent settings row keeps counters bounded and shared across workers.
+    The write locks that row on PostgreSQL and the writer on SQLite.
+    Failed creation rolls the reservation back; rejected requests add no rows.
+    """
+    minute_limit = int(os.environ.get('GUEST_GLOBAL_PER_MINUTE', '100'))
+    day_limit = int(os.environ.get('GUEST_GLOBAL_PER_DAY', '1000'))
+    if minute_limit < 1 or day_limit < 1:
+        raise RuntimeError('Guest creation limits must be positive')
+    key = 'guest_creation_quota'
+    db.execute('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO NOTHING', (key,'{}'))
+    db.execute('UPDATE settings SET value=value WHERE key=?', (key,))
+    now = time.time()  # Use the time after acquiring the lock.
+    minute, day = int(now//60), int(now//86400)
+    data = json.loads(db.execute('SELECT value FROM settings WHERE key=?', (key,)).fetchone()['value'])
+    minute_count = data.get('minute_count',0) if data.get('minute') == minute else 0
+    day_count = data.get('day_count',0) if data.get('day') == day else 0
+    if day_count >= day_limit:
+        raise GuestCreationLimited(max(1,int((day+1)*86400-now)+1))
+    if minute_count >= minute_limit:
+        raise GuestCreationLimited(max(1,int((minute+1)*60-now)+1))
+    db.execute('UPDATE settings SET value=? WHERE key=?',
+               (canonical({'minute':minute,'day':day,'minute_count':minute_count+1,'day_count':day_count+1}),key))
+
+
 def guest_login(path=DB):
     """A separate identity per guest session; never reuse a shared demo member."""
     ident=str(uuid.uuid4());token=secrets.token_urlsafe(32);csrf=secrets.token_urlsafe(24)
     with connect(path) as db:
+        reserve_guest_creation(db)
         db.execute('INSERT INTO members VALUES(?,?,?,?,?,?)',
             (ident,'guest',ident+'@guest.invalid','Guest',secrets.token_hex(16),secrets.token_hex(32)))
         db.execute('INSERT INTO sessions VALUES(?,?,?,?)',
@@ -326,6 +363,7 @@ def guest_login(path=DB):
     return {'token':token,'csrf':csrf,'member':{'id':ident,'tenant':'guest','name':'Guest'}}
 
 def login(email,password,path=DB):
+    """Legacy compatibility only; disabled HTTP endpoint."""
     email=normalize_email(email)
     if not isinstance(password,str) or len(password)>200:return None
     with connect(path) as db:

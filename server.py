@@ -17,12 +17,13 @@ class Handler(BaseHTTPRequestHandler):
     server_version='MySelfPayPOC'
     cookie_name='selfpay_session'
     def log_message(self,*args): pass  # No searches, transcripts or member details in access logs.
-    def respond(self,status,data,cookie=None,content_type='application/json'):
+    def respond(self,status,data,cookie=None,content_type='application/json',retry_after=None):
         body=json.dumps(data).encode() if content_type=='application/json' else data
         self.send_response(status)
         self.send_header('Content-Type',content_type+'; charset=utf-8')
         self.send_header('Content-Length',str(len(body)))
         self.send_header('Cache-Control','no-store')
+        if retry_after is not None:self.send_header('Retry-After',str(retry_after))
         self.send_header('X-Content-Type-Options','nosniff')
         self.send_header('Referrer-Policy','no-referrer')
         self.send_header('X-Frame-Options','DENY')
@@ -118,6 +119,8 @@ class Handler(BaseHTTPRequestHandler):
         return self.respond(404,{'error':'Not found'})
     def dispatch(self,method):
         try:self.route_selfpay_request(method)
+        except core.GuestCreationLimited as exc:
+            self.respond(429,{'error':str(exc),'code':'guest_creation_limit','retry_after':exc.retry_after},retry_after=exc.retry_after)
         except PermissionError:self.respond(404,{'error':'Record unavailable'})
         except ValueError as exc:
             # Validation messages are written for members. Parser and type errors are not, so they stay generic.

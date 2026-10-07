@@ -80,6 +80,10 @@ class PostgresIntegration(unittest.TestCase):
         cleanup(URL,apply=True)
         self.assertIsNone(core.session(a['token'],URL))
 
+    def test_guest_dependency_cleanup(self):
+        from test_cleanup import check_guest_retention
+        check_guest_retention(self, URL)
+
     def test_failed_transaction_rolls_back(self):
         core = self.core
         with self.assertRaises(RuntimeError):

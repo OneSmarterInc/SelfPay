@@ -1,12 +1,1 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "api/index.py": {
-      "maxDuration": 30,
-      "includeFiles": "{static/**,seed/**,core.py,server.py,postgres_store.py}"
-    }
-  },
-  "github": {
-    "autoAlias": false
-  }
-}
+{"$schema":"https://openapi.vercel.sh/vercel.json","git":{"deploymentEnabled":false}}

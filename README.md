@@ -110,3 +110,21 @@ The frontend is one module (`static/app.js`); the overriding `functional.js` and
 obsolete local-memory history implementation have been removed. Existing synthetic
 accounts are only seeded if REVIEW_PASSWORD is explicitly configured; there is no
 hardcoded default. Guest setup needs no credential configuration.
+
+### Global guest creation limits
+
+New guest identities are limited across all IPs and workers sharing the database:
+100 per UTC clock minute and 1,000 per UTC calendar day by default. Set positive
+integer server variables GUEST_GLOBAL_PER_MINUTE / GUEST_GLOBAL_PER_DAY to adjust.
+These are fixed windows, not rolling windows. The existing 20/minute per-IP
+request limit remains. Existing guest sessions do not consume global admissions.
+At capacity the API returns 429 with Retry-After and an explanation shown by the
+existing sign-in error handler. Database errors fail closed.
+
+One settings row (guest_creation_quota) holds both counters; row locking and guest
+creation share a transaction, so concurrent workers cannot overshoot and failed
+account creation does not consume quota. No schema migration, reset, or historical
+member deletion is needed. Counters start at first use after deployment; they do
+not retrospectively count accounts made before the feature. Do not delete the
+quota settings row during retention cleanup. Environments sharing a database also
+share these limits. Per-guest conversation storage limits are a separate control.

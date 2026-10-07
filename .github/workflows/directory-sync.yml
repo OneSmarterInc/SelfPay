@@ -20,7 +20,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   sync:
-    if: github.ref == 'refs/heads/main' && vars.SELFPAY_DIRECTORY_SYNC_ENABLED == 'true'
+    # A manual read-only check does not enable scheduled/live publication.
+    if: github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.apply == false) || vars.SELFPAY_DIRECTORY_SYNC_ENABLED == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: directory-sync

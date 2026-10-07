@@ -9,8 +9,9 @@ SHA-256 `e60778bb503442e40ce035fdf70958db65ca1d710ce0279b06c2bcea8bd42a96`,
 74-entry/57-offer seed is not this live catalog. `publish_directory.py` is disabled
 so it cannot replace the live data.
 
-The new workflow is disabled unless repository variable
-`SELFPAY_DIRECTORY_SYNC_ENABLED` is exactly `true`. A merge does not provision the
+Scheduled imports and manual apply are disabled unless repository variable
+`SELFPAY_DIRECTORY_SYNC_ENABLED` is `true`. An explicitly dispatched
+read-only dry-run from main is allowed while that variable remains unset/false. A merge does not provision the
 database, install credentials, enable a schedule, or promote the application.
 No live import is established until the one-time setup and live verification below
 have completed. Daily jobs can be delayed by GitHub; do not promise an exact minute.
@@ -100,17 +101,20 @@ The project is documentary; SQL checks the database and actual Neon branch setti
    client. Never put the secret in repository files, workflow inputs, artifacts,
    CLI arguments, or ordinary messages. The assistant does not need to see it.
    Do not reuse `SELFPAY_CLEANUP_DATABASE_URL`.
-5. Approve/merge the reviewed code PR. After the environment restriction and secret
-   are verified, explicitly authorize activation and set repository variable
-   `SELFPAY_DIRECTORY_SYNC_ENABLED=true`. Workflow code and data stay separate;
-   runtime token permissions are contents-read-only. Actions and pip distributions
-   are pinned; secrets are exposed only during the database step, never to PR tests.
+5. Approve/merge the reviewed code PR, leaving the live-enable variable unset.
+   Workflow code and data stay separate; runtime token permissions are
+   contents-read-only. Actions and pip distributions are pinned; secrets are
+   exposed only during the database step, never to PR tests.
 6. Dispatch **Directory sync** from main with `apply=false` and expected active
-   `25c0d8d8-a6de-4f0e-b106-3d4b5ab0a48f`. Verify zero additions/changes/removals,
-   93 entries and 13 offers. With fresh permission, dispatch `apply=true` to anchor
-   the v7 bootstrap ledger without replacing the current batch. Confirm the job,
-   database source ledger and website catalog. A later additive export and repeat
-   run should demonstrate one publication followed by an idempotent no-op.
+   `25c0d8d8-a6de-4f0e-b106-3d4b5ab0a48f`. This read-only check works while live
+   imports remain disabled. Verify zero additions/changes/removals, 93 entries
+   and 13 offers.
+7. After successful dry-run and explicit approval for activation, set repository
+   variable `SELFPAY_DIRECTORY_SYNC_ENABLED=true`. This permits manual apply and
+   the daily scheduled import. Dispatch `apply=true` to anchor the v7 bootstrap
+   ledger without replacing the current batch. Confirm the job, database source
+   ledger and website catalog. A later additive export and repeat run should
+   demonstrate one publication followed by an idempotent no-op.
 
 Credential rotation/revocation or changed GitHub/Neon access can require future
 manual intervention. OTP-free routine import is only a verified outcome after a

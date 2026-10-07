@@ -36,10 +36,9 @@ jobs:
       - name: Start disposable local database only
         run: |
           sudo systemctl start postgresql.service
-          sudo -u postgres psql -c "ALTER SYSTEM SET neon.branch_id = 'br-rapid-mouse-b7clh18t';"
-          sudo systemctl restart postgresql.service
           sudo -u postgres psql -c "CREATE USER directory_test WITH SUPERUSER PASSWORD 'local-directory-test-only';"
           sudo -u postgres psql -c "CREATE DATABASE neondb OWNER directory_test;"
+          sudo -u postgres psql -c "ALTER DATABASE neondb SET neon.branch_id = 'br-rapid-mouse-b7clh18t';"
       - name: PostgreSQL permissions, atomicity, idempotence and fail-closed checks
         env:
           DIRECTORY_SYNC_TEST_ALLOW_RESET: '1'

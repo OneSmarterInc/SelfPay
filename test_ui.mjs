@@ -35,10 +35,12 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   assert.match(node('app').innerHTML,/Where would you like to search/);
   assert.equal(vm.runInContext('results.length',ctx),0);
   vm.runInContext("state.mod='MRI';state.body='Knee';state.location='Cincinnati';state.budget=500",ctx);
-  assert.equal(vm.runInContext('DIRECTORY.length',ctx),44);
+  assert.equal(vm.runInContext('DIRECTORY.length',ctx),74);
   await vm.runInContext('talk("Find knee MRI without contrast near Cincinnati under $500")',ctx);
   assert.equal(vm.runInContext('results.length',ctx),2);
   assert.equal(vm.runInContext('state.messages.length',ctx),2);
+  assert.equal(vm.runInContext("price({type:'quote',amount:null})",ctx),'Quote required');
+  assert.equal(vm.runInContext("typeLabel({type:'quote'})",ctx),'Quote / confirmation required');
   const saved=await vm.runInContext('api("/conversations")',ctx);assert.equal(saved.conversations.length,1);
   vm.runInContext('detail("aff-mri")',ctx);assert.match(node('app').innerHTML,/Questions to ask the facility/);
   await vm.runInContext('history()',ctx);assert.match(node('modal').innerHTML,/Saved conversations/);
@@ -67,7 +69,7 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   assert.match(node('modal').innerHTML,/comparison-table/);
   vm.runInContext('request(offers[0])',ctx);node('simulateRequest').onclick();
   assert.match(node('requestStatus').innerHTML,/Sent \(simulated\)/);
-  assert.match(vm.runInContext('initialSearch()',ctx),/Directory loaded: 44 researched entries/);
+  assert.match(vm.runInContext('initialSearch()',ctx),/Directory loaded: 74 researched entries/);
   assert.match(vm.runInContext('initialSearch()',ctx),/Try sample: knee MRI/);
   failSave=true;
   await vm.runInContext("(async()=>{state=defaults();state.mod='MRI';state.body='Knee';state.contrast='without';state.location='Cincinnati';state.mode='agent';try{await talk('MRI without contrast')}catch{}})()",ctx);

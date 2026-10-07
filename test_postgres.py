@@ -27,7 +27,7 @@ class PostgresIntegration(unittest.TestCase):
 
     def test_catalog_published(self):
         data = self.core.catalog(URL)
-        self.assertEqual((len(data['entries']), len(data['offers'])), (44, 13))
+        self.assertEqual((len(data['entries']), len(data['offers'])), (74, 57))
 
     def test_login_session_and_ownership(self):
         core = self.core

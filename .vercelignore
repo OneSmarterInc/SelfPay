@@ -14,3 +14,4 @@ tests/fixtures/
 ops/directory_sync.sql
 directory_sync.py
 ops/directory_sync_query.sql
+ops/repair_directory_apply.sql

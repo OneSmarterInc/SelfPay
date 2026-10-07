@@ -178,3 +178,18 @@ roles and databases; they are prohibited against hosted environments.
 - [Vercel Git deployment controls](https://vercel.com/docs/project-configuration/git-configuration)
 - [PostgreSQL SECURITY DEFINER guidance](https://www.postgresql.org/docs/current/sql-createfunction.html)
 - [PostgreSQL TLS verification](https://www.postgresql.org/docs/current/libpq-ssl.html)
+
+### Guarded manual repair for the observed function variant
+
+Read-only inspection found a manually installed `apply_bundle` variant with three
+changed variable references. Its dry-run succeeds, but apply fails on an ambiguous
+`document_hash` reference. `ops/repair_directory_apply.sql` restores only that
+function to the exact reviewed definition. It is a single prepared statement for
+authorized manual administrator execution, not a workflow or assistant operation.
+It pins the observed bad body hash, correct owner/signature, original active batch,
+93/13 catalog fingerprints and empty ledger. Unknown state aborts; an already
+correct function is a no-op only at the same verified baseline. It preserves all
+other functions, roles, ACLs, memberships and data, and rolls back on any failure.
+The user must run it themselves, then have the restored body/permissions verified
+before any live import or credential test. Do not rerun the initial provisioning
+package after roles already exist.

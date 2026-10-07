@@ -6,6 +6,8 @@ on:
       - 'publish_directory.py'
       - 'ops/directory*'
       - 'test_directory_sync*'
+      - 'test_directory_apply_repair.py'
+      - 'ops/repair_directory_apply.sql'
       - 'tests/fixtures/directory-*'
       - '.github/workflows/directory-sync*'
   pull_request:
@@ -14,6 +16,8 @@ on:
       - 'publish_directory.py'
       - 'ops/directory*'
       - 'test_directory_sync*'
+      - 'test_directory_apply_repair.py'
+      - 'ops/repair_directory_apply.sql'
       - 'tests/fixtures/directory-*'
       - '.github/workflows/directory-sync*'
 permissions:
@@ -43,4 +47,4 @@ jobs:
         env:
           DIRECTORY_SYNC_TEST_ALLOW_RESET: '1'
           DIRECTORY_SYNC_TEST_DATABASE_URL: postgresql://directory_test:local-directory-test-only@127.0.0.1/neondb
-        run: python -m unittest test_directory_sync_postgres test_directory_sync_query_postgres -v
+        run: python -m unittest test_directory_sync_postgres test_directory_sync_query_postgres test_directory_apply_repair -v

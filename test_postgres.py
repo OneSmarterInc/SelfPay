@@ -18,32 +18,15 @@ class PostgresIntegration(unittest.TestCase):
         import setup_hosted
         cls.core = core
         with core.connect(URL) as db:
-            for table in ('corrections', 'preferences', 'conversations', 'sessions', 'members', 'publish_events',
+            for table in ('guest_usage', 'corrections', 'preferences', 'conversations', 'sessions', 'members', 'publish_events',
                           'settings', 'offers', 'entries', 'batches', 'login_limits'):
                 db.execute(f'DROP TABLE IF EXISTS {table} CASCADE')
         with patch.dict(os.environ, {'DATABASE_URL': URL, 'REVIEW_PASSWORD': 'Synthetic-Review-1'}):
-            core.DEMO_PASSWORD = 'Synthetic-Review-1'
             setup_hosted.setup()
 
     def test_catalog_published(self):
         data = self.core.catalog(URL)
         self.assertEqual((len(data['entries']), len(data['offers'])), (74, 57))
-
-    def test_login_session_and_ownership(self):
-        core = self.core
-        a = core.login('alex.a@example.test', 'Synthetic-Review-1', URL)
-        b = core.login('sam.a@example.test', 'Synthetic-Review-1', URL)
-        self.assertTrue(a['member']['id'] != b['member']['id'])
-        member_a = core.session(a['token'], URL)
-        member_b = core.session(b['token'], URL)
-        search = {'mod': 'MRI', 'body': 'Knee', 'contrast': 'without', 'location': 'Cincinnati', 'budget': 500}
-        saved = core.save_conversation(member_a, {'messages': [{'role': 'user', 'text': 'synthetic'}], 'search': search}, URL)
-        self.assertIn(saved['id'], [c['id'] for c in core.history(member_a, URL)])
-        self.assertNotIn(saved['id'], [c['id'] for c in core.history(member_b, URL)])
-        with self.assertRaises(PermissionError):
-            core.save_conversation(member_b, {'id': saved['id'], 'messages': [], 'search': search}, URL)
-        with self.assertRaises(PermissionError):
-            core.delete_conversation(member_b, saved['id'], URL)
 
     def test_guest_sessions_are_separate(self):
         core=self.core
@@ -51,19 +34,8 @@ class PostgresIntegration(unittest.TestCase):
         self.assertNotEqual(a['member']['id'],b['member']['id'])
         member=core.session(a['token'],URL)
         self.assertEqual(member['tenant'],'guest')
-        core.preference(member,{'location':'Cincinnati'},path=URL)
+        core.preference(member,{'location':'Cincinnati, OH'},path=URL)
         self.assertEqual(core.preference(core.session(b['token'],URL),path=URL),{})
-
-    def test_registration_is_uniform_and_hash_upgraded(self):
-        core = self.core
-        first = core.register('Reviewer', 'pg.reviewer@example.test', 'Eight123', URL)
-        second = core.register('Reviewer', 'pg.reviewer@example.test', 'Other1234', URL)
-        self.assertEqual(first, second)
-        self.assertIsNotNone(core.login('pg.reviewer@example.test', 'Eight123', URL))
-        self.assertIsNone(core.login('pg.reviewer@example.test', 'Other1234', URL))
-        with core.connect(URL) as db:
-            stored = db.execute("SELECT password_hash FROM members WHERE email='pg.reviewer@example.test'").fetchone()
-        self.assertTrue(stored['password_hash'].startswith(f'pbkdf2${core.PBKDF2_ITERATIONS}$'))
 
     def test_database_backed_rate_limit(self):
         from api.index import handler

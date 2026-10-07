@@ -43,7 +43,7 @@ class handler(server.Handler):
                 'origin_matches_host':origin=='https://'+host,
             }),flush=True)
         return valid
-    def respond(self,status,data,cookie=None,content_type='application/json'):
+    def respond(self,status,data,cookie=None,content_type='application/json',retry_after=None):
         if cookie:cookie+='; Secure'
         if content_type!='application/json':
             text=data.decode('utf-8')
@@ -52,12 +52,11 @@ class handler(server.Handler):
             text=text.replace('Local use only.','Review use only.').replace('local POC','review POC')
             text=text.replace('MySelfPay POC v4.1','MySelfPay Review v5')
             data=text.encode('utf-8')
-        return super().respond(status,data,cookie,content_type)
+        return super().respond(status,data,cookie,content_type,retry_after=retry_after)
     def login_allowed(self,key,limit=20):
         # Database-backed counter works across serverless instances. Store no raw email/IP.
         key=hashlib.sha256(key.casefold().encode()).hexdigest()
         minute=int(time.time()//60)
         with core.connect(self.database_path()) as db:
-            db.execute('DELETE FROM login_limits WHERE window_id<?',(minute-2,))
             row=db.execute('INSERT INTO login_limits VALUES(?,?,1) ON CONFLICT(key,window_id) DO UPDATE SET attempts=login_limits.attempts+1 RETURNING attempts',(key,minute)).fetchone()
         return row['attempts']<=limit

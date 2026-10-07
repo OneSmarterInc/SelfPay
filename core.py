@@ -18,6 +18,10 @@ DEMO_PASSWORD = os.environ.get('REVIEW_PASSWORD')
 ACCOUNTS = [('alex.a@example.test','plan-a','Alex'), ('sam.a@example.test','plan-a','Sam'),
             ('alex.b@example.test','plan-b','Alex'), ('jordan.b@example.test','plan-b','Jordan')]
 
+# LEGACY PASSWORD COMPATIBILITY ONLY — NOT AN ACTIVE AUTHENTICATION FLOW.
+# HTTP register/login/password routes return 410; current access uses guest_login.
+# Retained for historical synthetic-account records and compatibility tests.
+# Do not wire these helpers into routes without a separate authentication review.
 PBKDF2_ITERATIONS = 600000  # OWASP 2023 guidance for PBKDF2-HMAC-SHA256
 LEGACY_ITERATIONS = 200000  # hashes stored before the upgrade are bare hex at this count
 
@@ -266,6 +270,7 @@ def agent(message,raw,path=DB):
         reply+=' Some listings have unconfirmed contrast or protocol. A published amount below your budget does not confirm that it covers your requested exam or all fees; ask the facility for the exact total.'
     return {'reply':reply,**result,'agent_mode':'deterministic-demo'}
 
+# BEGIN UNUSED LEGACY PASSWORD API HELPERS (no HTTP callers).
 def normalize_email(email):
     import re
     if not isinstance(email,str):raise ValueError('Enter a valid email address')
@@ -300,6 +305,7 @@ def change_password(member,current_password,new_password,path=DB):
         db.execute('DELETE FROM sessions WHERE member_id=?',(member['id'],))
     return {'ok':True}
 
+# END LEGACY REGISTRATION/PASSWORD-CHANGE HELPERS.
 def guest_login(path=DB):
     """A separate identity per guest session; never reuse a shared demo member."""
     ident=str(uuid.uuid4());token=secrets.token_urlsafe(32);csrf=secrets.token_urlsafe(24)
@@ -311,6 +317,7 @@ def guest_login(path=DB):
     return {'token':token,'csrf':csrf,'member':{'id':ident,'tenant':'guest','name':'Guest'}}
 
 def login(email,password,path=DB):
+    """Legacy compatibility only. Disabled HTTP endpoint; not used by guest sign-in."""
     email=normalize_email(email)
     if not isinstance(password,str) or len(password)>200:return None
     with connect(path) as db:

@@ -8,5 +8,11 @@
   },
   "github": {
     "autoAlias": false
+  },
+  "git": {
+    "deploymentEnabled": {
+      "directory-data": false,
+      "directory-sync-*": false
+    }
   }
 }

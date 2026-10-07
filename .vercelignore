@@ -6,3 +6,10 @@ __pycache__
 *.zip
 test_*
 .github
+
+
+directory-input/
+directory/
+tests/fixtures/
+ops/directory_sync.sql
+directory_sync.py

@@ -26,6 +26,22 @@ HEADERS = ('Center or operator', 'City / area', 'State', 'Entity type', 'Pricing
 MAX_BYTES = 5_000_000
 HEX = re.compile(r'^[0-9a-f]{64}$')
 
+# Only exact, reviewed server messages may become public error codes.
+DATABASE_GUARD_ERRORS = {
+    "directory sync: bootstrap requires the reviewed active batch": "bootstrap_active_batch_mismatch",
+    "directory sync: reviewed bootstrap full-row fingerprint mismatch": "bootstrap_fingerprint_mismatch",
+    "directory sync: source version or export freshness rejected": "source_version_or_freshness_rejected",
+    "directory sync: first apply must exactly match the reviewed catalog": "bootstrap_catalog_mismatch",
+    "directory sync: active batch changed (compare-and-swap mismatch)": "active_batch_conflict"
+}
+
+def database_guard_error(exc):
+    if getattr(exc, 'sqlstate', None) != 'P0001':
+        return None
+    primary = getattr(getattr(exc, 'diag', None), 'message_primary', None)
+    return DATABASE_GUARD_ERRORS.get(primary) if isinstance(primary, str) else None
+
+
 class ValidationError(ValueError):
     """Messages are fixed safe codes; never include untrusted data or credentials."""
 
@@ -342,7 +358,7 @@ def main():
                 category = label
                 break
         print(json.dumps({
-            'ok': False, 'error': 'sync_failed',
+            'ok': False, 'error': database_guard_error(exc) or 'sync_failed',
             'exception_type': type(exc).__name__,
             'sqlstate': getattr(exc, 'sqlstate', None),
             'category': category, 'python_locations': frames,

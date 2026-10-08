@@ -1,12 +1,10 @@
--- One-time administrator migration. No catalog rows or permissions are changed.
--- Allows only the exact reviewed recovery bundle in dry-run mode.
--- Fails closed if the installed function or database snapshot has changed.
-BEGIN;
-SET LOCAL search_path = pg_catalog;
-SET LOCAL lock_timeout = '10s';
+-- Run this entire file as ONE statement. PostgreSQL makes the DO block atomic.
 DO $repair$
 DECLARE definition text; source text; snapshot jsonb;
+  before_state jsonb; outcome jsonb; reviewed_document text;
 BEGIN
+  PERFORM pg_catalog.set_config('search_path', 'pg_catalog', true);
+  PERFORM pg_catalog.set_config('lock_timeout', '10s', true);
   PERFORM selfpay_directory_sync.check_target();
   PERFORM pg_catalog.pg_advisory_xact_lock(734512, 20261007);
   LOCK TABLE public.entries, public.offers IN SHARE MODE;
@@ -60,11 +58,6 @@ $old$, $new$  IF bootstrap AND prior = 'b8696fb4-5db5-4de0-8c4e-6c65e8fc8cb4' TH
     END IF;
 $new$);
   EXECUTE definition;
-END
-$repair$;
-DO $verify_repair$
-DECLARE before_state jsonb; outcome jsonb; reviewed_document text;
-BEGIN
   before_state := selfpay_directory_sync.status();
   SELECT '{"entries":[' || pg_catalog.string_agg(
     selfpay_directory_sync.canonical_strings(pg_catalog.jsonb_build_object(
@@ -81,7 +74,6 @@ BEGIN
      OR selfpay_directory_sync.status() IS DISTINCT FROM before_state THEN
     RAISE EXCEPTION 'directory repair: dry-run verification failed';
   END IF;
+  RAISE NOTICE 'Dry-run repair installed and verified; publishing remains blocked';
 END
-$verify_repair$;
-COMMIT;
-SELECT 'Dry-run repair installed and verified; publishing remains blocked' AS result;
+$repair$;

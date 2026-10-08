@@ -36,11 +36,21 @@ review database: it drops test tables.
 
 Run ops/upgrade_guest_tier.sql as owner before testing this Preview. No automatic
 public migration endpoint exists. New databases use setup_hosted.py. Directory
-updates use publish_directory.py (stage) then publish_directory.py --apply, with
-python-dotenv installed and DATABASE_URL in .env.local. Expected 74 entries and
-57 offers; no member reset. Preserve previous_batch for rollback.
+updates use the guarded workflow described in docs/directory-sync.md. The old
+74-entry seed publisher is disabled: the verified live catalog already contains
+93 entries and 13 preserved offers. The canonical Library workbook is the source
+of truth. One-time restricted access setup and live activation require approval.
 
 Git integration retains github.autoAlias=false: Preview only, no production
 promotion. Vercel Deployment Protection is still unverified and requires account
 access. The daily cleanup workflow needs SELFPAY_CLEANUP_DATABASE_URL; use a
 restricted role and dry-run before apply. Backup retention is separate.
+
+
+## Unattended directory imports
+
+See [Directory sync setup and verification](docs/directory-sync.md). Public data
+exports live on the separate `directory-data` branch. The daily import stays
+disabled until restricted database access, the main-only GitHub environment, the
+user-entered secret, and live dry-run are verified. No application deployment is
+required to publish a validated data batch.

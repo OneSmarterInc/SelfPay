@@ -1,0 +1,106 @@
+[
+  {
+    "amount_cents": 45000,
+    "entry_key": "ddccefdbfe5ce1300be682fd7074b9dc5b961abb47df85bbdbc386fbd574d3ab",
+    "id": "aff-ct",
+    "max_cents": null,
+    "payload": "{\"amount\":450,\"body\":\"general\",\"contrast\":\"without\",\"entry_hash\":\"90ab36a52b98d4c167aa931775f829a16e6806a91c06224bd2abc489f19b17ca\",\"entry_name\":\"Affordable Imaging Services\",\"id\":\"aff-ct\",\"included\":\"Radiologist interpretation and image CD; provider states all-inclusive\",\"mod\":\"CT\",\"order\":\"Confirm with facility\",\"region\":\"Cincinnati\",\"row\":18,\"scope\":\"Single exam; exact body-area applicability requires confirmation\",\"type\":\"fixed\"}",
+    "price_type": "fixed"
+  },
+  {
+    "amount_cents": 49500,
+    "entry_key": "ddccefdbfe5ce1300be682fd7074b9dc5b961abb47df85bbdbc386fbd574d3ab",
+    "id": "aff-mri",
+    "max_cents": null,
+    "payload": "{\"amount\":495,\"body\":\"general\",\"contrast\":\"without\",\"entry_hash\":\"90ab36a52b98d4c167aa931775f829a16e6806a91c06224bd2abc489f19b17ca\",\"entry_name\":\"Affordable Imaging Services\",\"id\":\"aff-mri\",\"included\":\"Radiologist interpretation and image CD; provider states all-inclusive\",\"mod\":\"MRI\",\"order\":\"Not established in this directory—confirm\",\"region\":\"Cincinnati\",\"row\":18,\"scope\":\"Single exam; exact knee protocol requires confirmation\",\"type\":\"fixed\"}",
+    "price_type": "fixed"
+  },
+  {
+    "amount_cents": 64500,
+    "entry_key": "ddccefdbfe5ce1300be682fd7074b9dc5b961abb47df85bbdbc386fbd574d3ab",
+    "id": "aff-mric",
+    "max_cents": null,
+    "payload": "{\"amount\":645,\"body\":\"general\",\"contrast\":\"with\",\"entry_hash\":\"90ab36a52b98d4c167aa931775f829a16e6806a91c06224bd2abc489f19b17ca\",\"entry_name\":\"Affordable Imaging Services\",\"id\":\"aff-mric\",\"included\":\"Radiologist interpretation and image CD; provider states all-inclusive\",\"mod\":\"MRI\",\"order\":\"Not established in this directory—confirm\",\"region\":\"Cincinnati\",\"row\":18,\"scope\":\"Single exam with published $150 contrast supplement; exact protocol requires confirmation\",\"type\":\"fixed\"}",
+    "price_type": "fixed"
+  },
+  {
+    "amount_cents": 35000,
+    "entry_key": "172522cdb040469ef1011e883302a3858467489a32736d8085208b091cbe3bcc",
+    "id": "apt-hebron",
+    "max_cents": null,
+    "payload": "{\"amount\":350,\"body\":\"general\",\"contrast\":\"without\",\"entry_hash\":\"6948d358290b1bdbaa232730437c5d24760d760c94924028e0c1cb54971f5be4\",\"entry_name\":\"Aptiva Health Imaging — Hebron\",\"id\":\"apt-hebron\",\"included\":\"Scan and radiologist report; no separate facility fee\",\"mod\":\"MRI\",\"order\":\"Physician order required\",\"region\":\"Cincinnati\",\"row\":45,\"scope\":\"Per body part, noncontrast; confirm exact ordered exam\",\"type\":\"fixed\"}",
+    "price_type": "fixed"
+  },
+  {
+    "amount_cents": 35000,
+    "entry_key": "2e39efdcaba40d18976fc70e815212e77f37078ed85b89d6db3ee6041c4bb356",
+    "id": "apt-lexington",
+    "max_cents": null,
+    "payload": "{\"amount\":350,\"body\":\"general\",\"contrast\":\"without\",\"entry_hash\":\"8bcec77fbc288a565fb04fb1497cdd8e6a8553f6e539b3bfd8f55d72e7a68eb2\",\"entry_name\":\"Aptiva Health Imaging — Lexington\",\"id\":\"apt-lexington\",\"included\":\"Scan and radiologist report; no separate facility fee\",\"mod\":\"MRI\",\"order\":\"Conflicting referral wording—confirm order requirement\",\"region\":\"Lexington\",\"row\":44,\"scope\":\"Per body part, noncontrast; confirm exact ordered exam\",\"type\":\"fixed\"}",
+    "price_type": "fixed"
+  },
+  {
+    "amount_cents": 35000,
+    "entry_key": "d02e5820b397f23db6da672086268d385d06b03a0187101df8c7a42bc0e64c39",
+    "id": "apt-louisville",
+    "max_cents": null,
+    "payload": "{\"amount\":350,\"body\":\"general\",\"contrast\":\"without\",\"entry_hash\":\"e3867a591826f5a098def2fcd423d6b3b849504ad5b0396a63ff3129d071a25b\",\"entry_name\":\"Aptiva Health Imaging — Louisville\",\"id\":\"apt-louisville\",\"included\":\"Scan and radiologist report; no separate facility fee\",\"mod\":\"MRI\",\"order\":\"Physician order required\",\"region\":\"Louisville\",\"row\":43,\"scope\":\"Per body part, noncontrast; confirm exact ordered exam\",\"type\":\"fixed\"}",
+    "price_type": "fixed"
+  },
+  {
+    "amount_cents": 75000,
+    "entry_key": "933fbfc399a043229ecfebe1eb71d94e9c61c8444fa9136f05a6ba31a00af0d1",
+    "id": "auburn",
+    "max_cents": null,
+    "payload": "{\"amount\":750,\"body\":\"general\",\"contrast\":\"unknown\",\"entry_hash\":\"da3acf02af23eda0f3874bf013be3ab3f6c586e99f6777a797833c102cdc50b3\",\"entry_name\":\"Tellica Imaging Auburn\",\"id\":\"auburn\",\"included\":\"Radiologist, contrast and labs unconfirmed for this branch\",\"mod\":\"MRI\",\"order\":\"Confirm with facility\",\"region\":\"Auburn\",\"row\":26,\"scope\":\"Auburn-specific MRI rate; protocol and fee scope unconfirmed\",\"type\":\"fixed\"}",
+    "price_type": "fixed"
+  },
+  {
+    "amount_cents": 55000,
+    "entry_key": "be31b412e179745a5d0c2a8de6a00dd3d6ed5e7e03fab04efa42c90de25e913b",
+    "id": "boise",
+    "max_cents": null,
+    "payload": "{\"amount\":550,\"body\":\"general\",\"contrast\":\"unknown\",\"entry_hash\":\"3062b372dcbaf363fc0382853bbc910ae89bf8f5195d074ed3ab8192fa523086\",\"entry_name\":\"Tellica Imaging Boise\",\"id\":\"boise\",\"included\":\"Radiologist, contrast and labs not itemized locally—confirm\",\"mod\":\"MRI\",\"order\":\"Most patients have provider order; confirm\",\"region\":\"Boise\",\"row\":12,\"scope\":\"Boise-specific published MRI rate; protocol and fee scope unconfirmed\",\"type\":\"fixed\"}",
+    "price_type": "fixed"
+  },
+  {
+    "amount_cents": 44500,
+    "entry_key": "34df1512a871754a985b6d0a602948352a7139868440df7e19e0b054c9781be3",
+    "id": "ga-start",
+    "max_cents": null,
+    "payload": "{\"amount\":445,\"body\":\"general\",\"contrast\":\"without\",\"entry_hash\":\"3141c263bfb82614e24f0cd713bb3d2a81d8956fefba44faab971f9ddc8a782c\",\"entry_name\":\"Georgia Health Imaging\",\"id\":\"ga-start\",\"included\":\"Radiologist report included; other components require confirmation\",\"mod\":\"MRI\",\"order\":\"Confirm with facility\",\"region\":\"Lawrenceville\",\"row\":27,\"scope\":\"Starting price for one noncontrast scan; final amount varies\",\"type\":\"starting\"}",
+    "price_type": "starting"
+  },
+  {
+    "amount_cents": null,
+    "entry_key": "5a41a415dfd221b44bd9f81f97854b35db14652f21fa496ba9187ce76fa28453",
+    "id": "ipmc-conflict",
+    "max_cents": null,
+    "payload": "{\"body\":\"general\",\"contrast\":\"without\",\"entry_hash\":\"3ec09c92f527780faf30047d3064cfa27464d9ea6e7f2b97904d4ea21109d95c\",\"entry_name\":\"Independent Physicians Medical Center (IPMC)\",\"id\":\"ipmc-conflict\",\"included\":\"Radiologist interpretation/report included\",\"mod\":\"MRI\",\"order\":\"Physician referral required\",\"region\":\"Philadelphia\",\"row\":48,\"scope\":\"Published pages disagree ($399 and $450 for noncontrast); request current quote\",\"type\":\"conflict\"}",
+    "price_type": "conflict"
+  },
+  {
+    "amount_cents": 65000,
+    "entry_key": "41fa9605323be0ec671933e9f0a2148fd1231aed3f290142128aa460ca6f6fa5",
+    "id": "mh-range",
+    "max_cents": 72500,
+    "payload": "{\"amount\":650,\"body\":\"general\",\"contrast\":\"unknown\",\"entry_hash\":\"9add7ae0081a20d69590f5a20067e50e409e5adb5bece2fa9884924ea0b0b8a1\",\"entry_name\":\"MH Imaging\",\"id\":\"mh-range\",\"included\":\"All-inclusive single-exam pricing and written radiologist report\",\"max\":725,\"mod\":\"MRI\",\"order\":\"Self-referral pathway; confirm with facility\",\"region\":\"Wisconsin\",\"row\":38,\"scope\":\"Single-exam range with or without contrast; exact quote needed\",\"type\":\"range\"}",
+    "price_type": "range"
+  },
+  {
+    "amount_cents": 60000,
+    "entry_key": "fc9818b7a726ec69ac66e5b0362e0ea1598ee07afda60158f011c9d2b780078f",
+    "id": "spanish",
+    "max_cents": null,
+    "payload": "{\"amount\":600,\"body\":\"general\",\"contrast\":\"unknown\",\"entry_hash\":\"4b5561e0bd27c813276dcecff809db0f435d9739ca015dbee91aed9540896ef7\",\"entry_name\":\"Tellica Imaging Spanish Fork\",\"id\":\"spanish\",\"included\":\"Radiologist reading, lab work and IV contrast per branch evidence\",\"mod\":\"MRI\",\"order\":\"Provider order required in Utah; no sedation\",\"region\":\"Spanish Fork\",\"row\":25,\"scope\":\"Spanish Fork-specific MRI rate; confirm exact exam\",\"type\":\"fixed\"}",
+    "price_type": "fixed"
+  },
+  {
+    "amount_cents": 109900,
+    "entry_key": "c76722d8b7b6e97e05660b55a1a2c1d710b3c8ce2083937c5ba2097d939f9f79",
+    "id": "vt-cap",
+    "max_cents": null,
+    "payload": "{\"amount\":1099,\"body\":\"general\",\"contrast\":\"without\",\"entry_hash\":\"71d66048fa28b6526eb26c10a25603ae22b30a38c85fda7624e55b7a7d2ebfb8\",\"entry_name\":\"Vermont OPEN Imaging\",\"id\":\"vt-cap\",\"included\":\"Scan and radiologist interpretation included\",\"mod\":\"MRI\",\"order\":\"Confirm with facility\",\"region\":\"South Burlington\",\"row\":47,\"scope\":\"Retail maximum, not an exact cash quote\",\"type\":\"maximum\"}",
+    "price_type": "maximum"
+  }
+]

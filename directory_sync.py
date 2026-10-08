@@ -227,17 +227,31 @@ def compare_snapshot(bundle, snapshot):
 def connection(url):
     # Never print connection strings, parsed credentials, libpq exception details or SQL data.
     import psycopg
+    checks = {}
     try:
         parts = urlsplit(url)
-        query = dict(parse_qsl(parts.query, strict_parsing=True))
-        valid = (parts.scheme in ('postgres','postgresql')
-                 and unquote(parts.username or '') == IMPORT_ROLE and bool(parts.password)
-                 and bool(re.fullmatch(r'ep-[a-z0-9-]+\.[a-z0-9.-]+\.neon\.tech', parts.hostname or ''))
-                 and parts.port in (None,5432) and parts.path == '/'+DATABASE
-                 and not parts.fragment and set(query) <= {'sslmode','channel_binding'})
+        checks = {
+            'plain_url': url == url.strip() and not any(c.isspace() for c in url),
+            'scheme': parts.scheme in ('postgres', 'postgresql'),
+            'restricted_role': unquote(parts.username or '') == IMPORT_ROLE,
+            'password_present': bool(parts.password),
+            'neon_hostname': bool(re.fullmatch(r'ep-[a-z0-9-]+\.[a-z0-9.-]+\.neon\.tech', parts.hostname or '')),
+            'port': parts.port in (None, 5432),
+            'database': parts.path == '/' + DATABASE,
+            'no_fragment': not parts.fragment,
+        }
+        try:
+            query = dict(parse_qsl(parts.query, strict_parsing=True))
+            checks['query_format'] = True
+            checks['allowed_query_parameters'] = set(query) <= {'sslmode', 'channel_binding'}
+        except ValueError:
+            checks['query_format'] = False
     except ValueError:
-        valid = False
-    require(valid, 'restricted_neon_connection_required')
+        checks['url_parse'] = False
+    if not all(checks.values()):
+        error = ValidationError('restricted_neon_connection_required')
+        error.failed_url_checks = [name for name, passed in checks.items() if not passed]
+        raise error
     return psycopg.connect(url, sslmode='verify-full', sslrootcert='/etc/ssl/certs/ca-certificates.crt',
                            channel_binding='require', connect_timeout=15, prepare_threshold=None)
 
@@ -298,7 +312,10 @@ def main():
             result = sync(args.bundle, args.apply, args.expected_active)
         print(json.dumps(result, sort_keys=True))
     except ValidationError as exc:
-        print(json.dumps({'ok':False,'error':str(exc)}), file=sys.stderr)
+        result = {'ok': False, 'error': str(exc)}
+        if hasattr(exc, 'failed_url_checks'):
+            result['failed_url_checks'] = exc.failed_url_checks
+        print(json.dumps(result), file=sys.stderr)
         return 1
     except Exception as exc:
         # Never log raw exception messages, credentials, SQL values or URLs.

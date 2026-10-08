@@ -680,5 +680,24 @@ class CredentialsAndCliTests(unittest.TestCase):
         run.assert_called_once_with(Path('data.json'), True, ACTIVE)
 
 
+class UrlDiagnosticTests(unittest.TestCase):
+    def test_failed_checks_are_labels_only_and_never_connect(self):
+        cases = [
+            (SYNTHETIC_URL.replace('selfpay_directory_importer:', 'owner:'), 'restricted_role'),
+            (SYNTHETIC_URL.replace('/neondb', '/wrong'), 'database'),
+            (SYNTHETIC_URL + '?unsupported=SECRET', 'allowed_query_parameters'),
+            (SYNTHETIC_URL + ' ', 'plain_url'),
+        ]
+        driver = SimpleNamespace(connect=Mock())
+        with patch.dict('sys.modules', {'psycopg': driver}):
+            for url, label in cases:
+                with self.assertRaises(sync.ValidationError) as caught:
+                    sync.connection(url)
+                self.assertIn(label, caught.exception.failed_url_checks)
+                self.assertNotIn('SECRET', str(caught.exception.failed_url_checks))
+                self.assertNotIn(url, str(caught.exception))
+        driver.connect.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

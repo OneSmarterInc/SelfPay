@@ -239,13 +239,17 @@ def connection(url):
         valid = False
     require(valid, 'restricted_neon_connection_required')
     return psycopg.connect(url, sslmode='verify-full', sslrootcert='/etc/ssl/certs/ca-certificates.crt',
-                           channel_binding='require', connect_timeout=15, prepare_threshold=None,
-                           options='-c search_path=pg_catalog -c statement_timeout=60000 -c lock_timeout=10000')
+                           channel_binding='require', connect_timeout=15, prepare_threshold=None)
 
 def sync(path, apply=False, expected_active=None):
     raw, bundle = read_bundle(path, require_fresh=False)
     require(bool(os.environ.get('SELFPAY_DIRECTORY_DATABASE_URL')), 'directory_secret_missing')
     with connection(os.environ['SELFPAY_DIRECTORY_DATABASE_URL']) as db:
+        # Transaction-local settings work through pooled connections without
+        # sending unsupported startup options or leaking state to another client.
+        db.execute("SET LOCAL search_path = pg_catalog")
+        db.execute("SET LOCAL statement_timeout = '60000ms'")
+        db.execute("SET LOCAL lock_timeout = '10000ms'")
         require(db.execute('SELECT current_user').fetchone()[0] == IMPORT_ROLE, 'wrong_database_role')
         before = db.execute('SELECT selfpay_directory_sync.status()').fetchone()[0]
         added = compare_snapshot(bundle, before)

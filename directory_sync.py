@@ -297,9 +297,35 @@ def main():
         print(json.dumps({'ok':False,'error':str(exc)}), file=sys.stderr)
         return 1
     except Exception as exc:
-        # Network/database details may contain DSNs or injected provider text.
-        code = getattr(exc, 'sqlstate', None)
-        print(json.dumps({'ok':False,'error':'sync_failed','sqlstate':code}), file=sys.stderr)
+        # Never log raw exception messages, credentials, SQL values or URLs.
+        frames = []
+        tb = exc.__traceback__
+        while tb is not None:
+            frame = tb.tb_frame
+            if Path(frame.f_code.co_filename).name == 'directory_sync.py':
+                frames.append({'function': frame.f_code.co_name, 'line': tb.tb_lineno})
+            tb = tb.tb_next
+        message = str(exc).lower()
+        category = 'unclassified'
+        patterns = (
+            ('authentication', ('password authentication failed',)),
+            ('dns', ('could not translate host name', 'name or service not known')),
+            ('tls_certificate', ('certificate verify failed', 'root certificate file')),
+            ('channel_binding', ('channel binding',)),
+            ('connection_timeout', ('connection timeout', 'timeout expired')),
+            ('connection_refused', ('connection refused',)),
+            ('connection_option', ('unsupported startup parameter', 'invalid connection option')),
+        )
+        for label, phrases in patterns:
+            if any(phrase in message for phrase in phrases):
+                category = label
+                break
+        print(json.dumps({
+            'ok': False, 'error': 'sync_failed',
+            'exception_type': type(exc).__name__,
+            'sqlstate': getattr(exc, 'sqlstate', None),
+            'category': category, 'python_locations': frames,
+        }), file=sys.stderr)
         return 1
     return 0
 

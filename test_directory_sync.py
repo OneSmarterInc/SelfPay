@@ -108,6 +108,8 @@ class FakeDatabase:
 
     def execute(self, statement, parameters=None):
         self.queries.append((statement, parameters))
+        if statement.startswith('SET LOCAL '):
+            return SimpleNamespace(fetchone=lambda: None)
         if statement == 'SELECT current_user':
             value = self.role
         elif statement == 'SELECT selfpay_directory_sync.status()':
@@ -493,7 +495,7 @@ class SyncBoundaryTests(unittest.TestCase):
         for apply in [False, True]:
             result, db = self.run_sync(bundle, apply=apply)
             self.assertTrue(result['verified']); self.assertTrue(result['unchanged']); self.assertFalse(result['applied'])
-            self.assertEqual(len(db.queries), 2)
+            self.assertEqual(len(db.queries), 5)
             self.assertEqual((result['entry_count'], result['offer_count']), (93, 13))
 
     def test_stale_new_input_is_blocked_before_any_apply(self):
@@ -502,13 +504,18 @@ class SyncBoundaryTests(unittest.TestCase):
             db = FakeDatabase()
             with self.assertRaisesRegex(sync.ValidationError, '^stale_export$'):
                 self.run_sync(bundle, db=db, apply=True)
-            self.assertEqual(len(db.queries), 2)
+            self.assertEqual(len(db.queries), 5)
 
     def test_dry_run_uses_parameters_and_does_not_mutate_snapshot(self):
         bundle = added_bundle(); before = snapshot(); db = FakeDatabase(before=before)
         result, db = self.run_sync(bundle, db=db)
         self.assertTrue(result['verified'])
-        statement, parameters = db.queries[2]
+        self.assertEqual([q[0] for q in db.queries[:3]], [
+            "SET LOCAL search_path = pg_catalog",
+            "SET LOCAL statement_timeout = '60000ms'",
+            "SET LOCAL lock_timeout = '10000ms'",
+        ])
+        statement, parameters = db.queries[5]
         self.assertEqual(statement, 'SELECT selfpay_directory_sync.apply_bundle(%s,%s,%s)')
         self.assertEqual(parameters, (sync.canonical(bundle) + '\n', ACTIVE, True))
         self.assertEqual(db.before, db.after)
@@ -520,8 +527,8 @@ class SyncBoundaryTests(unittest.TestCase):
         db = FakeDatabase(after=after, result={'active_batch': after['active_batch'], 'added': 1})
         result, db = self.run_sync(bundle, db=db, apply=True, expected_active=ACTIVE)
         self.assertTrue(result['verified']); self.assertEqual(result['added'], 1)
-        self.assertFalse(db.queries[2][1][2])
-        self.assertEqual(len(db.queries), 4)
+        self.assertFalse(db.queries[5][1][2])
+        self.assertEqual(len(db.queries), 7)
 
     def test_bootstrap_source_is_verified_without_changing_public_entries(self):
         before = snapshot(source=False)
@@ -544,7 +551,7 @@ class SyncBoundaryTests(unittest.TestCase):
             db = FakeDatabase(before=before)
             with self.subTest(field=field), self.assertRaisesRegex(sync.ValidationError, '^' + code + '$'):
                 self.run_sync(db=db, apply=True)
-            self.assertEqual(len(db.queries), 2)
+            self.assertEqual(len(db.queries), 5)
 
     def test_future_new_export_rejected_before_connection(self):
         bundle = added_bundle(); bundle['source']['exported_at'] = '2026-10-08T12:00:00Z'
@@ -599,7 +606,7 @@ class SyncBoundaryTests(unittest.TestCase):
         edit_entry(bundle, index, notes=injected)
         _, db = self.run_sync(bundle)
         self.assertTrue(all(injected not in sql for sql, _ in db.queries))
-        self.assertIn(injected, db.queries[2][1][0])
+        self.assertIn(injected, db.queries[5][1][0])
 
 
 class CredentialsAndCliTests(unittest.TestCase):
@@ -627,8 +634,7 @@ class CredentialsAndCliTests(unittest.TestCase):
             self.assertEqual(sync.connection(url), 'fake-connection')
         driver.connect.assert_called_once_with(url, sslmode='verify-full',
             sslrootcert='/etc/ssl/certs/ca-certificates.crt', channel_binding='require',
-            connect_timeout=15, prepare_threshold=None,
-            options='-c search_path=pg_catalog -c statement_timeout=60000 -c lock_timeout=10000')
+            connect_timeout=15, prepare_threshold=None)
 
     def invoke(self, argv, failure=None, result=None):
         out, err = io.StringIO(), io.StringIO()
@@ -642,7 +648,11 @@ class CredentialsAndCliTests(unittest.TestCase):
         error.sqlstate = '42501'
         status, out, err = self.invoke(['sync', 'unused.json'], failure=error)
         self.assertEqual(status, 1); self.assertEqual(out, '')
-        self.assertEqual(json.loads(err), {'ok': False, 'error': 'sync_failed', 'sqlstate': '42501'})
+        details = json.loads(err)
+        self.assertEqual({k: details[k] for k in ('ok', 'error', 'sqlstate')}, {'ok': False, 'error': 'sync_failed', 'sqlstate': '42501'})
+        self.assertEqual(details['exception_type'], 'RuntimeError')
+        self.assertEqual(details['category'], 'unclassified')
+        self.assertTrue(details['python_locations'])
         self.assertNotIn(marker, err); self.assertNotIn(SYNTHETIC_URL, err)
         self.assertNotIn('Traceback', err)
 
@@ -658,7 +668,11 @@ class CredentialsAndCliTests(unittest.TestCase):
         error = OSError('Private filename, synthetic credential, and provider content must not appear')
         status, out, err = self.invoke(['sync', 'unused.json'], failure=error)
         self.assertEqual((status, out), (1, ''))
-        self.assertEqual(json.loads(err), {'ok': False, 'error': 'sync_failed', 'sqlstate': None})
+        details = json.loads(err)
+        self.assertEqual(details['error'], 'sync_failed')
+        self.assertIsNone(details['sqlstate'])
+        self.assertEqual(details['exception_type'], 'OSError')
+        self.assertNotIn(str(error), err)
 
     def test_cli_apply_is_explicit_and_expected_active_is_forwarded(self):
         with patch('sys.argv', ['directory_sync.py', 'sync', 'data.json', '--apply', '--expected-active', ACTIVE]), patch.object(sync, 'sync', return_value={}) as run, redirect_stdout(io.StringIO()):

@@ -288,18 +288,43 @@ def search(raw,path=DB):
                 notice+=f" No matching offers or quote facilities within {s['radius']} miles. Showing the nearest quote facilities outside your radius; confirm the exact exam and contrast."
         else:nearby=[]
         if unlocated:notice+=' Some offers lack verified price-location coordinates and are omitted from distance results; browse National to review them.'
-    # Relax only the presentation filter, never the exam or contrast constraints.
-    if spatial and not result and not programs and s['type']!='all':
-        alternative=search(dict(s,type='all'),path)
-        if alternative['offers'] or alternative['programs']:
-            alternative['search']['type']=s['type']
-            alternative['location_notice']+=f" No offers match your {s['type']} price filter. Showing other price types for the same requested service; prices and scope require confirmation."
-            alternative['fallback']=True
-            return alternative
+    # Always offer a real, located reviewed alternative for a complete,
+    # resolved search. Keep the requested filters and the original offer scope.
+    alternative_heading=''
+    if spatial and not result and s['mod'] and s['body'].strip():
+        alternatives=[]
+        for original in data['offers']:
+            if original['entry'].get('location_type')=='program':continue
+            match=nearest(resolved,offer_locations(original))
+            if not match:continue
+            o=annotate(dict(original),match)
+            differences=[]; clinical_difference=False
+            if o['mod']!=s['mod']:
+                differences.append('Different modality: '+o['mod']);clinical_difference=True
+            if o.get('exam_terms') and not any(term in s['body'].casefold() for term in o['exam_terms']):
+                differences.append('Different exam: '+', '.join(o['exam_terms']));clinical_difference=True
+            if s['contrast']!='unknown' and o['contrast'] not in (s['contrast'],'unknown'):
+                differences.append('Different contrast: '+o['contrast']);clinical_difference=True
+            if s['type']!='all' and s['type']!=o['type']:differences.append('Different price type: '+o['type'])
+            if o['_distance']>s['radius']:differences.append('Outside selected radius')
+            o['budget_status']='No budget set' if not s['budget'] else 'Budget fit unconfirmed'
+            if s['budget'] and o.get('amount') is not None and o['amount']>s['budget']:
+                differences.append('Above your budget');o['budget_status']='Above your published-price budget'
+            o['filter_differences']=differences
+            o['reviewed_alternative']=True
+            o['match_status']='Reviewed alternative — does not match all selected filters. Confirm your ordered exam with the facility; this is not a substitute test.'
+            alternatives.append((clinical_difference,o['_distance'],str(o['id']),o))
+        if alternatives:
+            alternatives.sort(key=lambda item:item[:3])
+            result=[alternatives[0][3]]
+            fallback=True
+            alternative_heading='Nearest reviewed alternative'
+            nearby=[e for e in nearby if e['name']!=result[0]['entry']['name']]
+            notice+=' No reviewed facility offer matches all selected filters. Showing the nearest reviewed alternative, preferring the requested service before other exams. Differences are marked on the card; your filters are unchanged. This is not a substitute for your ordered exam.'
     if not spatial and s['sort']=='price':result.sort(key=lambda o:o['amount'] if o['type']=='fixed' and o['amount'] is not None else float('inf'))
     selected=set(o['id'] for o in result+programs);s['selected']=[x for x in s['selected'] if x in selected]
     return {'version':data['version'],'search':s,'offers':result,'count':len(result),'location_suggestions':suggestions if needs_choice else [],'location_notice':notice,'resolved_location':resolved,'programs':programs,'nearby_unpriced':nearby,
-            'fallback':fallback,'results_heading':f"Nothing within {s['radius']} miles. Nearest options:" if fallback else '',
+            'fallback':fallback,'results_heading':alternative_heading or (f"Nothing within {s['radius']} miles. Nearest options:" if fallback else ''),
             'program_heading':'Programs available in '+next((c['name'] for c in lookup(selected_state or '') if c['kind']=='state'),selected_state or ''),
             'unlocated_offer_count':len(unlocated),
             'program_entries':[e for e in data['entries'] if spatial and s['mod'] and s['body'].strip() and e.get('location_type')=='program' and covers(e,selected_state) and e['name'] not in {o['entry']['name'] for o in programs}]}

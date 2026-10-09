@@ -79,6 +79,19 @@ class SearchTests(unittest.TestCase):
             self.assertTrue(r['offers'][0]['reviewed_alternative'])
             self.assertIn('not a substitute',r['reply'])
 
+    def test_baltimore_choice_then_nationwide_nearest(self):
+        a=self.offer('dayton-only')
+        with patch.object(core,'catalog',return_value=dict(version='test',offers=[a],entries=[a['entry']])):
+            raw=dict(mod='MRI',body='knee',location='Baltimore',radius=25)
+            r=core.search(raw)
+            self.assertEqual(set(r['location_suggestions']),{'Baltimore, MD','Baltimore, OH'})
+            self.assertFalse(r['offers'])
+            for city in r['location_suggestions']:
+                found=core.search(dict(raw,location=city))
+                self.assertEqual(found['offers'][0]['id'],'dayton-only')
+                self.assertGreater(found['offers'][0]['distance_miles'],25)
+                self.assertTrue(found['fallback'])
+
     def test_agent_uses_quote_fallback(self):
         e=self.entry('far');e['locations']=[self.loc(45)]
         with patch.object(core,'catalog',return_value=dict(version='test',offers=[],entries=[e])):

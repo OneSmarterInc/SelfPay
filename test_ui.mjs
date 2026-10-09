@@ -117,3 +117,7 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   console.log('Client workflow checks, including guest privacy, quotas and catalog failure recovery, passed with stub transport. No browser visual QA.');
 }
 
+
+vm.runInContext("results=[];state.searched=true;state.dirty=false;state.unlocatedOfferCount=4;render()",ctx);
+assert.match(node('app').innerHTML,/Distance results are incomplete/);
+assert.match(node('app').innerHTML,/does not mean no services are available/);

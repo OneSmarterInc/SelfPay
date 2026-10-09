@@ -1,0 +1,1 @@
+SELECT value AS active_batch, (SELECT count(*) FROM public.entries WHERE batch_id=value) AS entry_count, (SELECT count(*) FROM public.offers WHERE batch_id=value) AS offer_count, (SELECT count(*) FROM public.entries WHERE batch_id=value AND jsonb_array_length(payload::jsonb->'locations')>0) AS located_entries FROM public.settings WHERE key='active_batch';

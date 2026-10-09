@@ -30,3 +30,7 @@ Historical attribution may remain unresolved because publish_events does not sto
 
 Neon-copy testing was not represented as completed: the user explicitly requested direct Vercel Storage work instead of creating a copy. The exception is recorded, not treated as general repeal of future change-control policy.
 
+
+## Follow-up: cleanup connection verified
+
+After the user configured the secret and role, manual apply=false run 37934081076 succeeded on 9 October 2026 at 13:02 UTC. No records were deleted. The missing-secret blocker above is historical and now resolved. See [complete output and verification limits](2026-10-09-cleanup-dry-run.md). Historical attribution and PR review remain outstanding.

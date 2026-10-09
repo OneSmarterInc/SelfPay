@@ -27,3 +27,7 @@ cleanup program enforces expiry and guest eligibility (no live session). A store
 role would provide tighter row-level control if required before real data use.
 This setup alone does not authorize PHI use or establish regulatory compliance.
 
+
+## Verified follow-up (9 October 2026, 13:02 UTC)
+
+After the user added SELFPAY_CLEANUP_DATABASE_URL and reported creating selfpay_cleanup, manual dry run 37934081076 passed. The earlier missing-secret finding is resolved. Full result: ops/change-records/2026-10-09-cleanup-dry-run.md. This read-only run does not independently verify role identity, DELETE grants or a successful scheduled deletion.

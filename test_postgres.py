@@ -34,7 +34,10 @@ class PostgresIntegration(unittest.TestCase):
         self.assertNotEqual(a['member']['id'],b['member']['id'])
         member=core.session(a['token'],URL)
         self.assertEqual(member['tenant'],'guest')
-        core.preference(member,{'location':'Cincinnati, OH'},path=URL)
+        with self.assertRaises(PermissionError):
+            core.preference(member,{'location':'Cincinnati, OH'},path=URL)
+        with core.connect(URL) as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) AS n FROM preferences WHERE member_id=?',(member['id'],)).fetchone()['n'],0)
         self.assertEqual(core.preference(core.session(b['token'],URL),path=URL),{})
 
     def test_database_backed_rate_limit(self):
@@ -68,3 +71,4 @@ class PostgresIntegration(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+

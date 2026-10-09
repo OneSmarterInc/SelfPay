@@ -1,36 +1,40 @@
-# Nearest-facility checklist: implementation and evidence
+# Nearest-facility checklist — completed implementation and verification
 
-9 October 2026. Code review PR; no production deployment or live mutation.
+Updated 9 October 2026. Scope: MySelfPay-nearest-facility-tasks.md, items 1–29. Code stays in PR #12. Production code has not been deployed.
 
-## Completed in code
-- Offline Census lookup, state disambiguation, city/ZIP coordinates, distance and radius UI.
-- Import-time extraction of ZIPs from source addresses, multi-city lists, program classification.
-- Original source fingerprint checks remain mandatory for unchanged legacy offer mappings.
-- National coverage is inferred only from explicit nationwide evidence; "Multiple" alone is not evidence of coverage in every state.
-- Quote leads exclude explicitly unavailable/unverified services and listings already represented in results.
-- Naugatuck Valley Radiology's three sites have source-pinned ZIP evidence in seed/facility-location-evidence.json. Source: https://www.nvranet.com/ (checked 2026-10-09). This evidence establishes geography only, never price scope. No external requests occur during import or search.
-- Guest location preference reads/writes are blocked; no browser geolocation.
-- New acceptance tests exercise real Dayton records from Kettering and 45402, Springfield ambiguity, a 250-mile fallback, a real nationwide program, Dayton/Cincinnati distance, and socket-blocked full search and agent execution.
-- CI now discovers all Python tests, including geography and acceptance tests.
+| Task group | Result and evidence |
+|---|---|
+| A, items 1–3 | Bundled Census city/ZIP lookup; offline resolution and ambiguity handling; socket-blocked search tests pass. |
+| B, items 4–8 | Import-time coordinates, ZIP preference, multi-city splitting, program classification and validation. Live catalog: 96 located entries, 7 programs; no unresolved import fragments. |
+| C, items 9–17 | Distance ordering; 25/50/100/250-mile radii; 3-nearest fallback; approximate straight-line labels; separate programs and quote leads; shared agent search; unknown-place ZIP prompt. Automated acceptance tests pass. |
+| D, items 18–19 | Guest location preference access blocked; no browser geolocation; locations sent in POST bodies, not URL queries. Inspected Vercel search logs contain method/path/status without location/body. No external drains configured. |
+| E, item 20 | Directory sync preserved the existing 13 offers; it never loaded the expanded seed mappings. Full explanation in the change records. |
+| E, item 21 | Completed atomic manual publication: all 103 entries preserved, 44 mappings added, original 13 unchanged. 57 mappings include 30 quote-required listings, not 57 fixed prices. |
+| F, items 22–28 | Tests cover Kettering, 45402, Springfield, nearest fallback, program grouping, known distance, and zero network calls. Kettering/45402 plus agent flow also verified in deployed Preview against live data. |
+| F, item 29 | One follow-up PR (#12), no direct main push in this work. Existing prior main changes remain historical. Full CI passes. |
 
-## Local verification
-`python -m unittest discover -q`: 207 collected, 152 passed, 55 skipped (database integration configuration unavailable locally).
-`node test_ui.mjs`: passed with a stub transport; not visual browser testing.
-Dayton/Cincinnati city reference points: approximately 47.44 straight-line miles.
-The four Dayton-area fixture offers are under 15 miles from Kettering and from ZIP 45402.
-Local stage report: ops/change-records/nearest-local-stage-report.json.
+## Live publication
 
-## Still outstanding
-- Live 103-entry source package, approved publication and historical guest-preference cleanup.
-- Live platform logging configuration and deployed browser verification.
-- PostgreSQL integration suites passed in GitHub CI (run 37919834072). Local skips were subsequently covered by the database jobs.
-- La Jolla and the broad NYC/Long Island entry still require source-supported fixed-site locations. The importer reports these as unresolved rather than inventing coordinates.
-- The repository seed contains 74 entries, not the live 103. It must not overwrite live data.
+Active batch: `395c84be-d26d-5432-bddb-bff7c58c1200`.
+103 directory entries, 57 mapped offers, 96 located entries, 130 location points and 7 programs.
+Prior batch: `85c7c95d-a9dd-5533-9427-6fdcefc74ab9`, retained for rollback.
+Exact SQL commit: `f32972320fbabd1e7fdc7d7671dacc1a85384d0e`.
+Record: `ops/change-records/2026-10-09-remaining-publication.md`.
+The user explicitly directed work in live Vercel Storage without a Neon branch copy. Tests used disposable local PostgreSQL in CI; no Neon-copy test is claimed.
 
-Earlier changes had already gone directly to main. This follow-up uses one PR; it does not undo that historical process deviation. Keep directory-data separate and Directory sync paused.
+## Verification
 
-## GitHub CI verification
-Run https://github.com/OneSmarterInc/SelfPay/actions/runs/37919834072 completed successfully.
-Full discovery: 207 collected / 55 environment-dependent skips in the SQLite step.
-Application/guest database step: 26 tests passed. Directory database step: 43 tests passed.
-Client workflow tests passed. These disposable runner databases are not live Neon.
+CI: https://github.com/OneSmarterInc/SelfPay/actions/runs/37927709339
+215 tests collected; database-only tests skipped in SQLite discovery are exercised by the separate PostgreSQL jobs (26 application tests and 51 directory tests). Client workflow tests pass.
+
+Preview: https://myselfpay-review-git-fix-nearest-f-6fc58d-1smarterincs-projects.vercel.app/
+Kettering and ZIP 45402 return the expected four Dayton-area facilities. Ask MySelfPay gives the same nearby candidates and requests missing contrast information. Boise verification from the prior coordinate publication remains covered by regression tests.
+
+## Data and privacy boundaries
+
+- Source dates, exclusions, fee scope and quote-required classifications are retained. No fresh price verification or contracted-network claim is implied.
+- Mosaic professional-services-only sites are excluded. La Jolla ZIP verified against the official location page. Evidence is pinned in seed/facility-location-evidence.json.
+- Some multi-site offers still lack branch-specific price applicability. They are intentionally omitted from distance-priced results and available under National; facility coordinates do not establish a price at every branch.
+- Visible runtime log and drain checks verify the supported app flow, not undisclosed provider-internal retention or arbitrary URLs submitted outside the app.
+- Historical guest preference deletion is separate from the nearest-facility checklist and was not performed. Production promotion and PR merge remain separate release actions.
+- Directory sync stays paused; directory-data remains separate.

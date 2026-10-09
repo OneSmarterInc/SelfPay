@@ -1,6 +1,6 @@
 # Complete remaining nearest-facility work
 
-Status: tested and authorized; pending live execution.
+Status: COMPLETED — live publication and classic/agent browser checks verified on 2026-10-09.
 
 Authorization: the user requested “now do remaning thing completly” after the remaining offer import, location research, privacy verification, and live Dayton checks were explicitly listed. The earlier user instruction to work directly in Vercel Storage without a Neon copy persists. No Neon-copy test or independent Vikram identity verification is claimed. Code remains in PR #12; no main merge or production deployment.
 
@@ -35,4 +35,14 @@ Search/agent use POST bodies, not location-bearing URL queries. Application acce
 
 ## Execution and verification
 
-CI passed: https://github.com/OneSmarterInc/SelfPay/actions/runs/37927709339 (job 113810549887). 215 tests collected in discovery; 26 application PostgreSQL tests; 51 directory PostgreSQL tests, including exact publication, rollback and changed-source rejection. Live execution pending.
+CI passed: https://github.com/OneSmarterInc/SelfPay/actions/runs/37927709339 (job 113810549887). 215 tests collected in discovery; 26 application PostgreSQL tests; 51 directory PostgreSQL tests, including exact publication, rollback and changed-source rejection. Live SQL executed through the authenticated Vercel Storage query UI after exact editor/committed-file comparison (64,150 characters). Verification returned active batch `395c84be-d26d-5432-bddb-bff7c58c1200`, 103 entries, 57 offers, 96 located entries. Read-only editor mode restored. Previous batch remains intact.
+
+Live browser checks at https://myselfpay-review-git-fix-nearest-f-6fc58d-1smarterincs-projects.vercel.app/:
+- Catalog loads 103 entries / 57 mapped offers.
+- Kettering MRI/knee returns 8 offers, including Precision Dayton, DOC Imaging, Precision North Dayton, and ProScan Vandalia. Rounded displayed distances approximately 1, 5, 10 and 15 miles; regression assertions use unrounded distances under 15.
+- ZIP 45402 returns the same four nearby facilities at approximately 6, 7, 6 and 10 miles.
+- Ask MySelfPay, “knee MRI near Kettering, OH”, returns the same nearby candidates and asks for contrast clarification.
+- New welcome copy correctly says searched locations are not saved.
+
+No production code deployment or main merge. Directory sync remains paused. No database entries, historical guest preferences, or other member data were deleted. Historical guest-preference deletion is a separate privacy-maintenance action, not a prerequisite for this new search flow; it requires its own explicit irreversible-deletion confirmation.
+

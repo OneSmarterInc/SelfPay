@@ -1,5 +1,7 @@
 # Guest privacy and coordinate/offer publication
 
+> Historical record. Coordinate and offer publication, site research, platform-log inspection and deployed QA are now completed; see `2026-10-09-remaining-publication.md`. Historical guest-preference deletion was not performed. Statements below describe their original preparation dates.
+
 Date: 2026-10-09. Prepared by Codex at the user's request.
 Status: privacy code tested; data investigation documented; live execution NOT approved or performed.
 Executor for live work: pending. Vikram approval: pending exact commit and Neon-copy evidence.

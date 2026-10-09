@@ -46,15 +46,38 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(r['offers'][0]['id'],'a')
         self.assertEqual(r['search']['type'],'range')
         self.assertIn('Above',r['offers'][0]['budget_status'])
-        self.assertIn('other price types',r['location_notice'])
+        self.assertIn('Different price type: fixed',r['offers'][0]['filter_differences'])
 
-    def test_fallback_never_substitutes_exam_or_contrast(self):
-        a=self.offer('a');a['exam_terms']=['brain']
-        self.assertFalse(self.run_search([a],type='range')['offers'])
-        a.pop('exam_terms')
-        self.assertFalse(self.run_search([a],type='range',contrast='with')['offers'])
-        a['mod']='CT'
-        self.assertFalse(self.run_search([a],type='range')['offers'])
+    def test_reviewed_alternative_discloses_exam_and_contrast(self):
+        a=self.offer('a');a['exam_terms']=['brain'];a['mod']='CT'
+        r=self.run_search([a],type='range',contrast='with')
+        o=r['offers'][0]
+        self.assertTrue(o['reviewed_alternative'])
+        self.assertEqual(o['mod'],'CT')
+        self.assertEqual(o['contrast'],'without')
+        self.assertEqual(r['search']['contrast'],'with')
+        self.assertIn('Different exam: brain',o['filter_differences'])
+        self.assertIn('Different contrast: without',o['filter_differences'])
+        self.assertIn('not a substitute',o['match_status'])
+
+    def test_alternative_prefers_service_then_nearest(self):
+        a=self.offer('ct');a['mod']='CT'
+        b=self.offer('mri',42);c=self.offer('far',44)
+        r=self.run_search([c,a,b],type='range')
+        self.assertEqual(r['offers'][0]['id'],'mri')
+        self.assertIn('Outside selected radius',r['offers'][0]['filter_differences'])
+
+    def test_alternative_across_locations_and_chat(self):
+        a=self.offer('ct');a['mod']='CT'
+        data=dict(version='test',offers=[a],entries=[a['entry']])
+        with patch.object(core,'catalog',return_value=data):
+            for location in ['Lexington, KY','Boise, ID','45402','Kettering, OH']:
+                r=core.search(dict(mod='MRI',body='knee',location=location))
+                self.assertEqual(r['count'],1)
+                self.assertIn('distance_miles',r['offers'][0])
+            r=core.agent('knee MRI near Boise, ID',{})
+            self.assertTrue(r['offers'][0]['reviewed_alternative'])
+            self.assertIn('not a substitute',r['reply'])
 
     def test_agent_uses_quote_fallback(self):
         e=self.entry('far');e['locations']=[self.loc(45)]

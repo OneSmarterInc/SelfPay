@@ -23,8 +23,14 @@ Local stage report: ops/change-records/nearest-local-stage-report.json.
 ## Still outstanding
 - Live 103-entry source package, approved publication and historical guest-preference cleanup.
 - Live platform logging configuration and deployed browser verification.
-- PostgreSQL integration suites must pass in CI; local skips are not passes.
+- PostgreSQL integration suites passed in GitHub CI (run 37919834072). Local skips were subsequently covered by the database jobs.
 - La Jolla and the broad NYC/Long Island entry still require source-supported fixed-site locations. The importer reports these as unresolved rather than inventing coordinates.
 - The repository seed contains 74 entries, not the live 103. It must not overwrite live data.
 
 Earlier changes had already gone directly to main. This follow-up uses one PR; it does not undo that historical process deviation. Keep directory-data separate and Directory sync paused.
+
+## GitHub CI verification
+Run https://github.com/OneSmarterInc/SelfPay/actions/runs/37919834072 completed successfully.
+Full discovery: 207 collected / 55 environment-dependent skips in the SQLite step.
+Application/guest database step: 26 tests passed. Directory database step: 43 tests passed.
+Client workflow tests passed. These disposable runner databases are not live Neon.

@@ -134,3 +134,19 @@ assert.ok(!node('cityChoices').innerHTML.includes('Boise'));
 node('locationToggle').onclick();
 node('locationToggle').onclick();
 assert.ok(node('cityChoices').innerHTML.includes('Boise'));
+
+// Location clarification must replace the empty-results card, with choices next to the input.
+vm.runInContext("state.location='Baltimore';state.locationSuggestions=['Baltimore, MD','Baltimore, OH'];state.locationUnresolved=true;state.searched=true;results=[];render()",ctx);
+assert.match(node('app').innerHTML,/Choose your city and state/);
+assert.doesNotMatch(node('app').innerHTML,/No reviewed match|0 reviewed offers|Select up to 3 options/);
+assert.match(node('locationSuggestions').innerHTML,/Baltimore, MD/);
+assert.match(node('locationSuggestions').innerHTML,/Baltimore, OH/);
+assert.match(node('locationSuggestions').innerHTML,/type="button"/);
+const fieldMarkup=vm.runInContext('searchFields()',ctx);
+assert.ok(fieldMarkup.indexOf('id="locationSuggestions"')>fieldMarkup.indexOf('id="location"'));
+assert.ok(fieldMarkup.indexOf('id="locationSuggestions"')<fieldMarkup.indexOf('id="budget"'));
+vm.runInContext("state.locationSuggestions=[];state.location='unrecognized';render()",ctx);
+assert.match(node('app').innerHTML,/Enter a city and state or ZIP code/);
+assert.doesNotMatch(node('app').innerHTML,/No reviewed match/);
+vm.runInContext("state.locationUnresolved=false;state.location='Baltimore, MD';render()",ctx);
+assert.doesNotMatch(node('app').innerHTML,/Choose your city and state/);

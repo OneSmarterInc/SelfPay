@@ -201,14 +201,17 @@ def clean_search(raw):
     try: budget=float(raw.get('budget') or 0)
     except (TypeError,ValueError): raise ValueError('Invalid budget')
     if not 0<=budget<=1000000: raise ValueError('Invalid budget')
-    return {'mod':mod,'contrast':contrast,'type':typ,'body':str(raw.get('body',''))[:100],
+    radius=raw.get('radius',50)
+    if isinstance(radius,bool) or radius not in (25,50,100,250):raise ValueError('Choose a radius of 25, 50, 100 or 250 miles')
+    return {'radius':radius,'mod':mod,'contrast':contrast,'type':typ,'body':str(raw.get('body',''))[:100],
             'location':str(raw.get('location',''))[:120].strip(),'budget':budget,
-            'sort':'price' if raw.get('sort')=='price' else 'scope',
+            'sort':raw.get('sort') if raw.get('sort') in ('price','scope') else 'distance',
             'selected':list(dict.fromkeys(x for x in raw.get('selected',[]) if isinstance(x,str)))[:3]}
 
 def search(raw,path=DB):
     s=clean_search(raw); data=catalog(path); result=[]; location=s['location'].casefold()
     from geo import lookup
+    from proximity import nearest, offer_locations, annotate, covers
     candidates=lookup(s['location']) if location != 'national' else []
     suggestions=list(dict.fromkeys(c['label'] for c in candidates))
     needs_choice=bool(candidates) and (len(suggestions)>1 or candidates[0]['match']!='exact')
@@ -226,29 +229,62 @@ def search(raw,path=DB):
         s['location']=resolved['label']
         if resolved['kind']=='zcta':
             location=selected_state.casefold()
-            notice='ZIP area located. Showing state-wide directory listings, not nearby facilities. Distance matching is not available.'
+            notice='Distances are approximate straight-line miles from the Census ZIP-area reference point, not driving distances.'
         elif resolved['kind']=='state':location=selected_state.casefold()
         else:location=resolved['name'].casefold()
     elif location:
         location='__unknown_location__'
-        notice='Location not found in the bundled Census data. Try a city and state, a five-digit ZIP, or National. Not every postal ZIP has a Census ZIP area.'
-    for o in data['offers']:
+        notice='We could not find that place. Please enter a five-digit ZIP code. Not every postal ZIP has a Census ZIP area.'
+    spatial=bool(resolved and resolved['kind'] in ('place','zcta'))
+    programs=[]; unlocated=[]
+    if spatial and not notice:notice='Distances are approximate straight-line miles from the searched city center, not driving distances.'
+    for original in data['offers']:
+        o=dict(original)
         if not s['mod'] or not s['body'].strip() or not location:continue
         e=o['entry']
-        if selected_state and selected_state not in [x.strip() for x in e['states'].split(';')]:continue
+        if not spatial and selected_state and not covers(e,selected_state):continue
         if o.get('exam_terms') and not any(term in s['body'].casefold() for term in o['exam_terms']):continue
         if o['mod']!=s['mod'] or (s['type']!='all' and s['type']!=o['type']):continue
         if s['contrast']!='unknown' and o['contrast'] not in (s['contrast'],'unknown'):continue
-        if not (location=='national' or location in o['region'].casefold() or location in e['area'].casefold() or location in [x.strip().casefold() for x in e['states'].split(';')]):continue
+        if not spatial and not (location=='national' or location in o['region'].casefold() or location in e['area'].casefold() or location in [x.strip().casefold() for x in e['states'].split(';')]):continue
         o['match_status']='Exact body-part and protocol applicability requires confirmation'
         o['budget_status']='Budget fit unconfirmed'
         if not s['budget']:o['budget_status']='No budget set'
         elif o['type']=='fixed' and o['amount']>s['budget']:o['budget_status']='Above your published-price budget'
         elif o['type']=='fixed' and o['contrast']!='unknown':o['budget_status']='Published amount within budget · exact scope needs confirmation'
+        if spatial:
+            if e.get('location_type')=='program':
+                if covers(e,selected_state):programs.append(o)
+                continue
+            match=nearest(resolved,offer_locations(o))
+            if not match:unlocated.append(o['id']);continue
+            o=annotate(o,match)
         result.append(o)
-    if s['sort']=='price':result.sort(key=lambda o:o['amount'] if o['type']=='fixed' and o['amount'] is not None else float('inf'))
-    selected=set(o['id'] for o in result);s['selected']=[x for x in s['selected'] if x in selected]
-    return {'version':data['version'],'search':s,'offers':result,'count':len(result),'location_suggestions':suggestions if needs_choice else [],'location_notice':notice,'resolved_location':resolved}
+    fallback=False; nearby=[]
+    if spatial:
+        s['sort']='distance'
+        result.sort(key=lambda o:o['_distance'])
+        within=[o for o in result if o['_distance']<=s['radius']]
+        fallback=bool(result and not within)
+        result=within if within else result[:3]
+        priced_names={o['entry']['name'] for o in data['offers'] if o.get('mod')==s['mod'] and o.get('amount') is not None}
+        for entry in data['entries']:
+            if not s['mod'] or not s['body'].strip() or entry.get('location_type')=='program' or entry['name'] in priced_names:continue
+            wording=str(entry.get(s['mod'].lower(),'')).strip()
+            if not wording or wording.casefold() in ('n/a','none','not offered','no'):continue
+            # Entries with published price wording but unmapped offers are not quote-only.
+            if '$' in wording or any(c.isdigit() for c in wording):continue
+            match=nearest(resolved,entry.get('locations',[]))
+            if match and match[0]<=s['radius']:nearby.append(annotate(entry,match))
+        nearby.sort(key=lambda e:e['_distance'])
+        if unlocated:notice+=' Some offers lack verified price-location coordinates and are omitted from distance results; browse National to review them.'
+    if not spatial and s['sort']=='price':result.sort(key=lambda o:o['amount'] if o['type']=='fixed' and o['amount'] is not None else float('inf'))
+    selected=set(o['id'] for o in result+programs);s['selected']=[x for x in s['selected'] if x in selected]
+    return {'version':data['version'],'search':s,'offers':result,'count':len(result),'location_suggestions':suggestions if needs_choice else [],'location_notice':notice,'resolved_location':resolved,'programs':programs,'nearby_unpriced':nearby,
+            'fallback':fallback,'results_heading':f"Nothing within {s['radius']} miles. Nearest options:" if fallback else '',
+            'program_heading':'Programs available in '+next((c['name'] for c in lookup(selected_state or '') if c['kind']=='state'),selected_state or ''),
+            'unlocated_offer_count':len(unlocated),
+            'program_entries':[e for e in data['entries'] if spatial and s['mod'] and s['body'].strip() and e.get('location_type')=='program' and covers(e,selected_state) and e['name'] not in {o['entry']['name'] for o in programs}]}
 
 def agent(message,raw,path=DB):
     import re
@@ -275,7 +311,7 @@ def agent(message,raw,path=DB):
     guidance_blocked=bool(re.search(r'what.*(test|scan).*need|diagnos|symptom|should i get',low)) or 'second opinion' in low
     if not guidance_blocked and not s['mod']:reply='What imaging service are you looking for: MRI or CT? Use the exam specified by your clinician.'
     elif not guidance_blocked and not s['body'].strip():reply='What body part is the exam for? Use the wording on your order, if you have one.'
-    elif not guidance_blocked and not s['location']:reply='What city and state or five-digit ZIP would you like to search? ZIP results cover the state; distance matching is not available.'
+    elif not guidance_blocked and not s['location']:reply='What city and state or five-digit ZIP would you like to search? Distances are approximate straight-line miles.'
     result=search(s,path)
     if not guidance_blocked and result['location_suggestions']:
         reply='Did you mean '+ ' or '.join(result['location_suggestions'])+'? Select a location below to update the search.'

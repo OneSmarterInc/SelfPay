@@ -23,16 +23,16 @@ class GeoTests(unittest.TestCase):
         self.assertGreater(len(geo.lookup(code)),1)
         for r in geo.lookup(code):self.assertEqual(len(geo.lookup(r['label'])),1)
     def test_shared_search(self):
-        entry={'states':'OH','area':'Dayton'}
+        entry={'name':'Synthetic','states':'OH','area':'Dayton','location_type':'site','locations':[dict(city='Dayton',state='OH',latitude=39.78,longitude=-84.2,precision='city')]}
         offer={'id':'test','entry':entry,'mod':'MRI','type':'fixed','contrast':'without','amount':400,'region':'Dayton'}
         raw={'mod':'MRI','body':'Knee','location':'45402'}
         with patch.object(core,'catalog',return_value={'version':'synthetic','entries':[entry],'offers':[offer]}):
             result=core.search(raw);self.assertEqual(result['count'],1)
-            self.assertIn('state-wide',result['location_notice']);self.assertEqual(result['resolved_location']['state'],'OH')
+            self.assertIn('straight-line',result['location_notice']);self.assertEqual(result['resolved_location']['state'],'OH')
             for location in ['Dayton','00000','Cincinatti, OH']:
                 self.assertEqual(core.search(dict(raw,location=location))['count'],0)
             self.assertEqual(core.search(dict(raw,location='Dayton, OH'))['count'],1)
             self.assertEqual(core.agent('Find knee MRI near 45402 without contrast',{})['count'],1)
-            self.assertEqual(core.search(dict(raw,location='Dayton, KY'))['count'],0)
+            self.assertEqual(core.search(dict(raw,location='Dayton, KY'))['count'],1)
 
 if __name__=='__main__':unittest.main()

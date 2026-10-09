@@ -3,7 +3,7 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 30,
-      "includeFiles": "{static/**,seed/**,core.py,geo.py,server.py,postgres_store.py}"
+      "includeFiles": "{static/**,seed/**,core.py,geo.py,proximity.py,server.py,postgres_store.py}"
     }
   },
   "github": {

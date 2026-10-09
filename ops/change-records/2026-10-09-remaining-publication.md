@@ -1,12 +1,12 @@
 # Complete remaining nearest-facility work
 
-Status: prepared, pending PostgreSQL CI and live execution.
+Status: tested and authorized; pending live execution.
 
 Authorization: the user requested “now do remaning thing completly” after the remaining offer import, location research, privacy verification, and live Dayton checks were explicitly listed. The earlier user instruction to work directly in Vercel Storage without a Neon copy persists. No Neon-copy test or independent Vikram identity verification is claimed. Code remains in PR #12; no main merge or production deployment.
 
 Target: neondb, Neon branch br-rapid-mouse-b7clh18t. Prior active batch: 85c7c95d-a9dd-5533-9427-6fdcefc74ab9. Intended batch: 395c84be-d26d-5432-bddb-bff7c58c1200.
 
-Exact files (commit to be recorded before execution):
+Exact SQL/source package commit: `f32972320fbabd1e7fdc7d7671dacc1a85384d0e`. Files:
 - ops/sql/publish-remaining-2026-10-09.sql
 - ops/sql/rollback-remaining-2026-10-09.sql
 - ops/sql/verify-coordinates-2026-10-09.sql
@@ -31,8 +31,8 @@ Single atomic publication; locks; expected active batch, entry hashes, counts an
 
 ## Privacy
 
-Search/agent use POST bodies, not location-bearing URL queries. Application access logs are suppressed; no guest preference reads/writes or browser geolocation. No new external analytics service is configured. Welcome text corrected to stop claiming guest location preferences are stored. Platform runtime-log inspection and live search evidence will be recorded below.
+Search/agent use POST bodies, not location-bearing URL queries. Application access logs are suppressed; no guest preference reads/writes or browser geolocation. No new external analytics service is configured. Welcome text corrected to stop claiming guest location preferences are stored. Vercel runtime request detail inspected on 2026-10-09: POST /api/search, status 200, one function log containing method/path/status only, no request body or searched location. Team Settings → Drains shows “Upgrade to Pro to create your first Drain”; no external drains configured. This verifies the current supported app flow and visible platform logs, not undisclosed provider-internal retention or arbitrary manually constructed URLs.
 
 ## Execution and verification
 
-Pending.
+CI passed: https://github.com/OneSmarterInc/SelfPay/actions/runs/37927709339 (job 113810549887). 215 tests collected in discovery; 26 application PostgreSQL tests; 51 directory PostgreSQL tests, including exact publication, rollback and changed-source rejection. Live execution pending.

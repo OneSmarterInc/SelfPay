@@ -13,7 +13,7 @@ def main():
     s = sub.add_parser('stage')
     s.add_argument('source', type=Path)
     s.add_argument('--mappings', type=Path, required=True,
-                   help='Explicit reviewed mappings; no implicit seed fallback')
+                   help='Explicit reviewed mappings; stage derives and validates required locations and reports unplaced entries')
     for name in ('publish', 'rollback'):
         s = sub.add_parser(name)
         s.add_argument('batch_id')
@@ -38,3 +38,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

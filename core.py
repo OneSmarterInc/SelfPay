@@ -91,7 +91,8 @@ def read_source(path):
 def stage_import(source, mappings, path=DB):
     entries=read_source(source); maps=json.loads(Path(mappings).read_text(encoding='utf-8'))
     if not isinstance(entries,list) or not entries: raise ValueError('Source must contain an entry list')
-    errors=[]; names=set(); normalized=[]
+    from facility_locations import enrich, validate_locations
+    errors=[]; names=set(); normalized=[]; unplaced=[]; enriched=[]
     for entry in entries:
         if not isinstance(entry,dict): raise ValueError('Malformed source entry')
         name=entry.get('name','').strip()
@@ -100,8 +101,13 @@ def stage_import(source, mappings, path=DB):
         if urlparse(entry.get('source','')).scheme!='https': errors.append(f'{name}: invalid source URL')
         try: dt.date.fromisoformat(entry.get('checked','')[:10])
         except ValueError: errors.append(f'{name}: missing or invalid verification date')
+        entry, issues=enrich(entry)
+        validate_locations(entry)
+        enriched.append(entry)
+        if issues:unplaced.append({'name':name,'issues':issues,'placed_count':len(entry['locations'])})
         normalized.append((digest(name),digest({k:v for k,v in entry.items() if k!='row'}),entry))
     if errors: raise ValueError('; '.join(errors))
+    entries=enriched
     signature=digest({'entries':entries,'mappings':maps})
     with connect(path) as db:
         existing=db.execute('SELECT id,report,status FROM batches WHERE content_hash=?',(signature,)).fetchone()
@@ -111,7 +117,9 @@ def stage_import(source, mappings, path=DB):
         current={k:h for k,h,e in normalized}
         report={'entry_count':len(entries),'added':sum(k not in old for k in current),
                 'changed':sum(k in old and old[k]!=h for k,h in current.items()),
-                'removed':sum(k not in current for k in old),'withheld_offers':[],'offer_count':0}
+                'removed':sum(k not in current for k in old),'withheld_offers':[],'offer_count':0,
+                'unplaced_entries':unplaced,'location_count':sum(len(e['locations']) for e in entries),
+                'program_count':sum(e['location_type']=='program' for e in entries)}
         batch=str(uuid.uuid4()); offers=[]; mapping_ids=set()
         lookup={e['name']:(k,h,e) for k,h,e in normalized}
         for m in maps:

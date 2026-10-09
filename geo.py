@@ -28,7 +28,7 @@ def _index():
                     states[normalize(name)]=item;states[normalize(row['state'])]=item
                 elif kind=='zcta':zips.setdefault(row['zip'],[]).append(item)
                 else:
-                    aliases={('Boise City','ID'):['Boise'],('Nashville-Davidson metropolitan government','TN'):['Nashville']}
+                    aliases={('Boise City','ID'):['Boise'],('Lexington-Fayette urban county','KY'):['Lexington','Lexington-Fayette'],('Nashville-Davidson metropolitan government','TN'):['Nashville']}
                     for key in set([normalize(name),normalize(row['name'])]+[normalize(a) for a in aliases.get((name,row['state']),[])]):names.setdefault(key,[]).append(item)
     return names,zips,states
 

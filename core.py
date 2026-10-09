@@ -439,8 +439,9 @@ def guest_agent(token, ip, message, raw, conversation_id, limits, path=DB):
     if not isinstance(message,str) or not message.strip():raise ValueError('Enter a message')
     if len(message)>characters:raise GuestAgentLimited(reason="characters")
     if conversation_id is not None and not isinstance(conversation_id,str):raise ValueError('Invalid conversation')
-    # Validate and compute without retaining member-entered content.
-    answer=agent(message,raw,path)
+    # Validate inexpensive input before reserving quota; never generate before
+    # the session and all shared limits have been checked atomically.
+    clean_search(raw)
     key=hashlib.sha256(token.encode()).hexdigest()
     with connect(path) as db:
         lock_usage(db)
@@ -456,6 +457,9 @@ def guest_agent(token, ip, message, raw, conversation_id, limits, path=DB):
         consume_windows(db,[('guest-agent-ip:'+ip,3600,per_ip),('guest-agent-global',86400,global_day)],agent=True)
         usage[conversation_id]=usage.get(conversation_id,0)+1
         db.execute('INSERT INTO guest_usage VALUES(?,?,?) ON CONFLICT(session_hash) DO UPDATE SET payload=excluded.payload',(key,member['member_id'],canonical(usage)))
+    # Reservation commits before potentially slow/paid generation, outside the
+    # lock. Failed generation consumes the attempt (no retry/refund loophole).
+    answer=agent(message,raw,path)
     return {**answer,'conversation_id':conversation_id,'usage':usage}
 
 

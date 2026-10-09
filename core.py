@@ -200,13 +200,30 @@ def clean_search(raw):
 
 def search(raw,path=DB):
     s=clean_search(raw); data=catalog(path); result=[]; location=s['location'].casefold()
-    choices=location_choices(data['entries'])
-    exact=[city for label,city in choices if label.casefold()==location]
-    selected_state=s['location'].rsplit(', ',1)[-1] if exact and ', ' in s['location'] else None
-    if exact:location=exact[0].casefold()
-    suggestions=location_options(s['location'],choices)
-    needs_choice=bool(suggestions) and (not any(location==city.casefold() for label,city in choices) or (location=='auburn' and not exact))
-    if needs_choice:location='__unconfirmed_location__'
+    from geo import lookup
+    candidates=lookup(s['location']) if location != 'national' else []
+    suggestions=list(dict.fromkeys(c['label'] for c in candidates))
+    needs_choice=bool(candidates) and (len(suggestions)>1 or candidates[0]['match']!='exact')
+    selected_state=None
+    notice=''
+    resolved=None
+    if location=='national':
+        pass
+    elif needs_choice:
+        location='__unconfirmed_location__'
+        notice='Choose a location below. No location has been selected automatically.'
+    elif candidates:
+        resolved=candidates[0]
+        selected_state=resolved['state']
+        s['location']=resolved['label']
+        if resolved['kind']=='zcta':
+            location=selected_state.casefold()
+            notice='ZIP area located. Showing state-wide directory listings, not nearby facilities. Distance matching is not available.'
+        elif resolved['kind']=='state':location=selected_state.casefold()
+        else:location=resolved['name'].casefold()
+    elif location:
+        location='__unknown_location__'
+        notice='Location not found in the bundled Census data. Try a city and state, a five-digit ZIP, or National. Not every postal ZIP has a Census ZIP area.'
     for o in data['offers']:
         if not s['mod'] or not s['body'].strip() or not location:continue
         e=o['entry']
@@ -223,7 +240,7 @@ def search(raw,path=DB):
         result.append(o)
     if s['sort']=='price':result.sort(key=lambda o:o['amount'] if o['type']=='fixed' and o['amount'] is not None else float('inf'))
     selected=set(o['id'] for o in result);s['selected']=[x for x in s['selected'] if x in selected]
-    return {'version':data['version'],'search':s,'offers':result,'count':len(result),'location_suggestions':suggestions if needs_choice else []}
+    return {'version':data['version'],'search':s,'offers':result,'count':len(result),'location_suggestions':suggestions if needs_choice else [],'location_notice':notice,'resolved_location':resolved}
 
 def agent(message,raw,path=DB):
     import re
@@ -245,18 +262,18 @@ def agent(message,raw,path=DB):
         if money:s['budget']=float(money[1])
         place=re.search(r'\b(?:near|in)\s+(.+?)(?=\s+(?:under|below|budget|with|without)\b|[.!?]|$)',message,re.I)
         if place:s['location']=place.group(1).strip()
-        elif location_options(message.strip()):s['location']=message.strip()
+        elif __import__('geo').lookup(message.strip()) or message.strip().casefold()=='national':s['location']=message.strip()
         reply='Is your ordered exam without contrast, with contrast, or without and with contrast? If unsure, confirm with your clinician.' if s['contrast']=='unknown' else 'Your search has been updated. Review the sourced candidates below and confirm the exact study, eligibility and total with the facility. These are published references, not current quotes.'
     guidance_blocked=bool(re.search(r'what.*(test|scan).*need|diagnos|symptom|should i get',low)) or 'second opinion' in low
     if not guidance_blocked and not s['mod']:reply='What imaging service are you looking for: MRI or CT? Use the exam specified by your clinician.'
     elif not guidance_blocked and not s['body'].strip():reply='What body part is the exam for? Use the wording on your order, if you have one.'
-    elif not guidance_blocked and not s['location']:reply='What city or state would you like to search near? ZIP and distance matching are not connected in this demo.'
-    elif not guidance_blocked and s['location'].isdigit():reply='ZIP matching is not connected in this demo. Please enter a city or state in Search details.'
+    elif not guidance_blocked and not s['location']:reply='What city and state or five-digit ZIP would you like to search? ZIP results cover the state; distance matching is not available.'
     result=search(s,path)
     if not guidance_blocked and result['location_suggestions']:
         reply='Did you mean '+ ' or '.join(result['location_suggestions'])+'? Select a location below to update the search.'
     elif not guidance_blocked and result['offers'] and any(o['contrast']=='unknown' for o in result['offers']):
         reply+=' Some listings have unconfirmed contrast or protocol. A published amount below your budget does not confirm that it covers your requested exam or all fees; ask the facility for the exact total.'
+    if not guidance_blocked and result.get('location_notice'):reply+=' '+result['location_notice']
     return {'reply':reply,**result,'agent_mode':'deterministic-demo'}
 
 class GuestCreationLimited(Exception):
@@ -333,11 +350,15 @@ def preference(member,value=None,delete=False,path=DB):
             location=str(value.get('location',''))[:120]
             if member['tenant']=='guest':
                 choices=[label for label,city in location_choices(catalog(path)['entries'])]
-                if location not in choices:raise ValueError('Choose a listed location; free-text preferences are not saved')
+                from geo import lookup
+                valid=any(c['match']=='exact' and c['label']==location for c in lookup(location))
+                if location not in choices and not valid:raise ValueError('Choose a confirmed Census or directory location; free-text preferences are not saved')
             db.execute('INSERT INTO preferences VALUES(?,?,?) ON CONFLICT(member_id) DO UPDATE SET payload=excluded.payload',(member['id'],member['tenant'],canonical({'location':location})))
         row=db.execute('SELECT payload FROM preferences WHERE member_id=? AND tenant=?',(member['id'],member['tenant'])).fetchone()
         result=json.loads(row['payload']) if row else {}
-    if member['tenant']=='guest' and result.get('location') not in [label for label,city in location_choices(catalog(path)['entries'])]:return {}
+    if member['tenant']=='guest' and result.get('location') not in [label for label,city in location_choices(catalog(path)['entries'])]:
+        from geo import lookup
+        if not any(c['match']=='exact' and c['label']==result.get('location') for c in lookup(result.get('location',''))):return {}
     return result
 
 
@@ -395,3 +416,4 @@ def guest_agent(token, ip, message, raw, conversation_id, limits, path=DB):
         usage[conversation_id]=usage.get(conversation_id,0)+1
         db.execute('INSERT INTO guest_usage VALUES(?,?,?) ON CONFLICT(session_hash) DO UPDATE SET payload=excluded.payload',(key,member['member_id'],canonical(usage)))
     return {**answer,'conversation_id':conversation_id,'usage':usage}
+

@@ -4,7 +4,7 @@ const entries=JSON.parse(fs.readFileSync('seed/directory.json','utf8'));
 const offers=JSON.parse(fs.readFileSync('seed/mappings.json','utf8')).map(o=>({...o,entry:entries.find(e=>e.name===o.entry_name),version:'test-version'}));
 let storedUsage={};
 let signedIn=false,conversations=[],failSave=false,failCatalog=false,limitReached=false,saveAttempts=0;
-const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',innerHTML:'',textContent:'',classList:{add(){},remove(){}},showModal(){},close(){},checked:false});return nodes.get(id)};
+const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{setAttribute(k,v){this[k]=v},querySelectorAll(){return []},focus(){},hidden:true,value:'',innerHTML:'',textContent:'',classList:{add(){},remove(){}},showModal(){},close(){},checked:false});return nodes.get(id)};
 const fetch=async(url,options={})=>{
   let status=200,body={};const input=JSON.parse(options.body||'{}');
   if(url==='/api/agent'&&limitReached)return {ok:false,status:429,json:async()=>({error:'Guest preview limit reached. Full access is coming with MySelfPay accounts.',code:'guest_preview_limit'})};
@@ -121,3 +121,16 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
 vm.runInContext("results=[];state.searched=true;state.dirty=false;state.unlocatedOfferCount=4;render()",ctx);
 assert.match(node('app').innerHTML,/Distance results are incomplete/);
 assert.match(node('app').innerHTML,/does not mean no services are available/);
+
+// Opening the arrow ignores the current value; typing filters only suggestions.
+vm.runInContext("state.location='Cincinnati, OH';render()",ctx);
+node('location').value='Cincinnati, OH';
+node('cityChoices').hidden=true;
+node('locationToggle').onclick();
+assert.equal(node('cityChoices').hidden,false);
+assert.ok(node('cityChoices').innerHTML.includes('Boise'));
+node('location').oninput();
+assert.ok(!node('cityChoices').innerHTML.includes('Boise'));
+node('locationToggle').onclick();
+node('locationToggle').onclick();
+assert.ok(node('cityChoices').innerHTML.includes('Boise'));

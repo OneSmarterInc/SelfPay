@@ -21,7 +21,8 @@ def nearest(origin,locations):
 
 
 def covers(entry,state):
-    return state in [s.strip().upper() for s in re.split('[;,/]',entry.get('states',''))] or entry.get('states','').strip().casefold() in ('national','nationwide','all states','us','usa')
+    explicit_nationwide=bool(re.search(r'\b(?:nationwide|all states)\b',str(entry.get('coverage','')),re.I))
+    return explicit_nationwide or state in [s.strip().upper() for s in re.split('[;,/]',entry.get('states',''))] or entry.get('states','').strip().casefold() in ('national','nationwide','all states','us','usa')
 
 
 def offer_locations(offer):
@@ -38,3 +39,4 @@ def offer_locations(offer):
 def annotate(item,match):
     distance,loc=match
     return dict(item,distance_miles=round(distance,1),distance_precision=loc['precision'],nearest_location=loc,_distance=distance)
+

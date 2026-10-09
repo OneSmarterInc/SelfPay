@@ -1,0 +1,38 @@
+{
+  "unchanged": false,
+  "status": "staged",
+  "entry_count": 74,
+  "added": 74,
+  "changed": 0,
+  "removed": 0,
+  "withheld_offers": [],
+  "offer_count": 57,
+  "unplaced_entries": [
+    {
+      "name": "Imaging Healthcare Specialists",
+      "issues": [
+        {
+          "input": "La Jolla",
+          "reason": "Unknown or ambiguous ZIP/city; review required"
+        }
+      ],
+      "placed_count": 6
+    },
+    {
+      "name": "Mosaic Diagnostics",
+      "issues": [
+        {
+          "input": "NYC",
+          "reason": "Unknown or ambiguous ZIP/city; review required"
+        },
+        {
+          "input": "Long Island",
+          "reason": "Unknown or ambiguous ZIP/city; review required"
+        }
+      ],
+      "placed_count": 0
+    }
+  ],
+  "location_count": 96,
+  "program_count": 7
+}

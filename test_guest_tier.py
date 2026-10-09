@@ -11,6 +11,26 @@ import server
 LIMITS=(server.GUEST_CONVERSATIONS,server.GUEST_MESSAGES,server.GUEST_MESSAGE_CHARACTERS,server.GUEST_AGENT_PER_IP_HOUR,server.GUEST_AGENT_GLOBAL_DAY)
 
 class AgentChecks:
+    def test_reservation_precedes_generation_and_rejection_skips_it(self):
+        self.reset();g=core.guest_login(self.db)
+        def generate(*args):
+            self.assertEqual(sum(core.guest_usage(g['token'],self.db).values()),1)
+            return {}
+        with patch('core.agent',side_effect=generate) as model:
+            r=self.send(g)
+            self.assertEqual(model.call_count,1)
+        with patch('core.agent') as model:
+            with self.assertRaises(PermissionError):self.send({'token':'invalid'})
+            model.assert_not_called()
+        for _ in range(4):self.send(g,r['conversation_id'])
+        with patch('core.agent') as model:
+            with self.assertRaises(core.GuestAgentLimited):self.send(g,r['conversation_id'])
+            model.assert_not_called()
+    def test_failed_generation_keeps_reservation(self):
+        self.reset();g=core.guest_login(self.db)
+        with patch('core.agent',side_effect=RuntimeError('synthetic generation failure')):
+            with self.assertRaises(RuntimeError):self.send(g)
+        self.assertEqual(sum(core.guest_usage(g['token'],self.db).values()),1)
     def reset(self):
         with core.connect(self.db) as db:db.execute('DELETE FROM login_limits')
     def send(self,guest,cid=None,text='MRI',ip='synthetic-ip'):
@@ -92,3 +112,4 @@ class HostedQuotaResponse(unittest.TestCase):
         with patch.object(server.Handler,'respond') as response:
             h.respond(429,{'error':core.GUEST_LIMIT_MESSAGE},retry_after=60)
         self.assertEqual(response.call_args.kwargs['retry_after'],60)
+

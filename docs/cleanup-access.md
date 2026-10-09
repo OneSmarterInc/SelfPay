@@ -20,9 +20,14 @@ The old password authentication functions and their tests have been removed.
    SELECT/DELETE permissions also support the table locks introduced in PR #5.
 
 No live role, password or GitHub secret has been provisioned by this change.
-The old cleanup secret remains in effect until the owner replaces it.
+As verified on 9 October 2026, SELFPAY_CLEANUP_DATABASE_URL is absent in GitHub Actions. Manual dry run 37929614670 stopped before connecting. Configure the restricted connection securely before retrying; never substitute the importer or owner URL.
 
 These grants restrict table operations, not which rows may be deleted: the
 cleanup program enforces expiry and guest eligibility (no live session). A stored-procedure-only
 role would provide tighter row-level control if required before real data use.
 This setup alone does not authorize PHI use or establish regulatory compliance.
+
+
+## Verified follow-up (9 October 2026, 13:02 UTC)
+
+After the user added SELFPAY_CLEANUP_DATABASE_URL and reported creating selfpay_cleanup, manual dry run 37934081076 passed. The earlier missing-secret finding is resolved. Full result: ops/change-records/2026-10-09-cleanup-dry-run.md. This read-only run does not independently verify role identity, DELETE grants or a successful scheduled deletion.

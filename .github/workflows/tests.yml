@@ -16,17 +16,30 @@ jobs:
         with:
           node-version: '20'
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install --require-hashes -r ops/directory-export-requirements.txt
       - name: Start PostgreSQL (runner image ships it with SSL on, which the app requires)
         run: |
           sudo systemctl start postgresql.service
           sudo -u postgres psql -c "CREATE USER selfpay WITH PASSWORD 'selfpay-test';"
           sudo -u postgres psql -c "CREATE DATABASE selfpay_test OWNER selfpay;"
       - name: Unit and functional tests (SQLite)
-        run: python -m unittest test_functional test_hosted test_cleanup test_guest_limits test_guest_tier -v
+        run: python -m unittest discover -v
       - name: PostgreSQL integration tests
         env:
           TEST_DATABASE_URL: postgresql://selfpay:selfpay-test@localhost/selfpay_test
         run: python -m unittest test_postgres test_guest_limits test_guest_tier -v
       - name: Client workflow tests
         run: node test_ui.mjs
+
+      - name: Prepare disposable directory integration database
+        run: |
+          sudo -u postgres psql -c "CREATE USER directory_test WITH SUPERUSER PASSWORD 'local-directory-test-only';"
+          sudo -u postgres psql -c "CREATE DATABASE neondb OWNER directory_test;"
+          sudo -u postgres psql -c "ALTER DATABASE neondb SET neon.branch_id = 'br-rapid-mouse-b7clh18t';"
+      - name: Directory PostgreSQL integration tests
+        env:
+          DIRECTORY_SYNC_TEST_ALLOW_RESET: '1'
+          DIRECTORY_SYNC_TEST_DATABASE_URL: postgresql://directory_test:local-directory-test-only@127.0.0.1/neondb
+        run: python -m unittest test_directory_sync_postgres test_directory_sync_query_postgres test_directory_apply_repair test_coordinate_publication test_remaining_publication -v

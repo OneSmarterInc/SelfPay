@@ -6,4 +6,27 @@
  .comparison-scroll{overflow-x:auto}.comparison-table{width:100%;border-collapse:collapse;table-layout:fixed}.comparison-table th,.comparison-table td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #dce5e9;overflow-wrap:anywhere}.comparison-table th:first-child{width:22%}.comparison-table tbody tr:nth-child(odd){background:#f3f7f8}#searchNotice:not(:empty),#locationSuggestions:not(:empty){padding:14px;background:#fff1d8;border-radius:8px;margin:12px 0}dialog:has(.comparison-table){width:min(960px,96vw)}@media(max-width:540px){.comparison-table{min-width:520px}} .auth-actions{display:flex;align-items:stretch;gap:12px}.auth-actions button{min-width:0;min-height:44px}.auth-actions #authSubmit{flex-shrink:0}.auth-actions #authSwitch{white-space:normal;overflow-wrap:anywhere}@media(max-width:400px){.auth-actions{gap:8px}.auth-actions button{padding:10px;font-size:14px}} 
 /* Search filters should not stretch to the height of all result cards. */
 .grid>aside.panel{align-self:start;min-width:0}
+
+/* Responsive UI review: keep content readable without expanding the page. */
+.grid{grid-template-columns:310px minmax(0,1fr);align-items:start}
+.agent-layout{grid-template-columns:minmax(0,1fr)}
+.detailgrid{grid-template-columns:minmax(0,2fr) minmax(0,1fr);align-items:start}
+.grid>*,.detailgrid>*,.row>*,.facts>*,.welcome-intro>*,.welcome-choices>*{min-width:0}
+.stack{align-content:start}
+.card,.panel,.message,.chip,.badge,.welcome-account{overflow-wrap:anywhere}
+button{max-width:100%;white-space:normal;line-height:1.4;min-height:44px}
+input:not([type=checkbox]),select{min-height:44px}
+input[type=checkbox]{width:18px;height:18px;accent-color:#105665;vertical-align:middle}
+.card label{display:inline-flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}
+input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #168294;outline-offset:3px}
+.price{white-space:normal;overflow-wrap:anywhere}
+#sort{max-width:100%}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+#cityChoices button:hover,#cityChoices button:focus-visible{background:#e4f1f4;color:#17343d}
+#cityChoices button{border-radius:5px;line-height:1.5}
+.modal-header{gap:12px}.modal-header button{flex-shrink:0}
+.actions{gap:10px}.tabs button{flex:0 1 auto}
+@media(max-width:900px) and (min-width:761px){.grid{grid-template-columns:270px minmax(0,1fr)}.agent-layout{grid-template-columns:minmax(0,1fr)}.facts{grid-template-columns:1fr}}
+@media(max-width:760px){.grid,.detailgrid{grid-template-columns:minmax(0,1fr)}.tabs{gap:8px}.tabs button{flex:1 1 140px}.agent-layout aside{padding:16px}.sticky{bottom:8px}.welcome-steps{padding:20px}}
+@media(max-width:400px){.shell{padding:0 12px}.panel,.card{padding:16px}.price{font-size:24px}.actions>button{flex:1 1 100%}}
 </style></head><body><header><a class="brand" id="brandHome" href="/" aria-label="MySelfPay homepage"><span class="mark" aria-hidden="true">+</span>My<span>SelfPay</span></a><nav><button id="history" hidden>Saved conversations</button><button id="directory" hidden>Directory</button><button id="profile">Sign in as guest</button></nav></header><div class="banner">MySelfPay POC v4.1 · Guest review · Synthetic information only · Published directory research, not a contracted network. Prices, eligibility and availability require facility confirmation.</div><main class="shell" id="app"></main><dialog id="modal"></dialog><div id="toast" class="toast hidden" role="status"></div><script type="module" src="/app.js"></script></body></html>

@@ -1,6 +1,6 @@
 # Coordinate-only publication for the Boise search
 
-Status: prepared; live execution not yet performed.
+Status: tested and authorized for the scoped coordinate publication; live execution not yet performed.
 
 ## Authorization and scope
 
@@ -10,7 +10,7 @@ Executor: Codex, acting through the authenticated Vercel Storage query UI after 
 
 ## Exact change
 
-- SQL: `ops/sql/publish-coordinates-2026-10-09.sql` (commit will be recorded before execution).
+- SQL: `ops/sql/publish-coordinates-2026-10-09.sql` at commit `410b3da4ad1f5a3ebd75a8a18268e7233823aa54`.
 - Verification: `ops/sql/verify-coordinates-2026-10-09.sql`.
 - Rollback: `ops/sql/rollback-coordinates-2026-10-09.sql`.
 - Prior batch: `8e7d7758-6c76-4fb3-9803-825cc1f77567`.
@@ -26,7 +26,7 @@ The 99-entry directory-data bundle plus four additional live entries were used f
 
 The Boise regression test uses the screenshot's MRI/knee/both-contrast/250-mile/$2,000 filters. With the coordinate patch it returns a nearby candidate within 10 miles. Contrast and price scope still require confirmation; this is not a guarantee that the requested protocol is included.
 
-The exact SQL has disposable-local-PostgreSQL tests for preservation of every original entry field, canonical hashes, unchanged offers, rollback, changed-catalog rejection and stale-batch rejection. CI outcome must be recorded before execution.
+The exact SQL has disposable-local-PostgreSQL tests for preservation of every original entry field, canonical hashes, unchanged offers, rollback, changed-catalog rejection and stale-batch rejection. CI passed: https://github.com/OneSmarterInc/SelfPay/actions/runs/37922331687 (job 113792981476). The exact committed SQL passed on disposable local PostgreSQL, including all three publication/rollback/fail-closed integration tests. This is not a Neon branch-copy test; the user-directed exception above applies.
 
 ## Boundaries
 

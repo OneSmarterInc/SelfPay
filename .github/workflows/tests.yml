@@ -42,4 +42,4 @@ jobs:
         env:
           DIRECTORY_SYNC_TEST_ALLOW_RESET: '1'
           DIRECTORY_SYNC_TEST_DATABASE_URL: postgresql://directory_test:local-directory-test-only@127.0.0.1/neondb
-        run: python -m unittest test_directory_sync_postgres test_directory_sync_query_postgres test_directory_apply_repair test_coordinate_publication -v
+        run: python -m unittest test_directory_sync_postgres test_directory_sync_query_postgres test_directory_apply_repair test_coordinate_publication test_remaining_publication -v

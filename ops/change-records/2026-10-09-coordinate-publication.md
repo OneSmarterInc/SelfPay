@@ -1,6 +1,6 @@
 # Coordinate-only publication for the Boise search
 
-Status: tested and authorized for the scoped coordinate publication; live execution not yet performed.
+Status: COMPLETED — live coordinate publication and Preview search verified on 2026-10-09.
 
 ## Authorization and scope
 
@@ -34,4 +34,23 @@ This does not publish the repository's separate 57-offer mapping set, change pri
 
 ## Execution evidence
 
-Pending.
+Executed on 2026-10-09 through authenticated Vercel Storage by Codex. The editor contents were copied with the platform-appropriate shortcut and verified byte-for-byte against the 40,035-character committed SQL before Run. An earlier attempt was automatically blocked when a different copy shortcut returned empty text; no SQL was executed by that blocked attempt.
+
+Committed verification query returned:
+
+| Field | Value |
+|---|---|
+| active_batch | 85c7c95d-a9dd-5533-9427-6fdcefc74ab9 |
+| entry_count | 103 |
+| offer_count | 13 |
+| located_entries | 95 |
+
+The query editor was returned to read-only mode after publication. Atomic SQL assertions verified the existing offer fingerprint was preserved, and the old batch remains available for rollback.
+
+Browser verification used the deployed code at commit `410b3da4ad1f5a3ebd75a8a18268e7233823aa54`:
+https://myselfpay-review-mizg7mw7i-1smarterincs-projects.vercel.app/
+
+The screenshot's exact filters (MRI, knee, without and with contrast, Boise City ID, 250 miles, $2,000) returned **Tellica Imaging Boise**, about **4 miles** from the searched city reference point to the facility ZIP reference point, with the existing **$550** published amount. The UI retained protocol-unconfirmed, fee-scope-unconfirmed and budget-fit-unconfirmed warnings. It does not promise that a contrast MRI costs $550.
+
+Production code was not deployed or merged. The main production URL still showed the older city/state-only interface; review the Preview URL above for the new distance behavior and empty-results explanation. The database coordinate update is live and shared by connected environments.
+

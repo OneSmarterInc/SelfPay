@@ -388,22 +388,16 @@ def delete_conversation(member,ident,path=DB):
             if not count:raise PermissionError('Conversation unavailable')
 
 def preference(member,value=None,delete=False,path=DB):
+    if member['tenant']=='guest' and not delete:
+        if value is not None:raise PermissionError('Guest locations are not saved')
+        return {}
     with connect(path) as db:
         if delete:db.execute('DELETE FROM preferences WHERE member_id=? AND tenant=?',(member['id'],member['tenant']))
         elif value is not None:
             location=str(value.get('location',''))[:120]
-            if member['tenant']=='guest':
-                choices=[label for label,city in location_choices(catalog(path)['entries'])]
-                from geo import lookup
-                valid=any(c['match']=='exact' and c['label']==location for c in lookup(location))
-                if location not in choices and not valid:raise ValueError('Choose a confirmed Census or directory location; free-text preferences are not saved')
             db.execute('INSERT INTO preferences VALUES(?,?,?) ON CONFLICT(member_id) DO UPDATE SET payload=excluded.payload',(member['id'],member['tenant'],canonical({'location':location})))
         row=db.execute('SELECT payload FROM preferences WHERE member_id=? AND tenant=?',(member['id'],member['tenant'])).fetchone()
-        result=json.loads(row['payload']) if row else {}
-    if member['tenant']=='guest' and result.get('location') not in [label for label,city in location_choices(catalog(path)['entries'])]:
-        from geo import lookup
-        if not any(c['match']=='exact' and c['label']==result.get('location') for c in lookup(result.get('location',''))):return {}
-    return result
+        return json.loads(row['payload']) if row and member['tenant']!='guest' else {}
 
 
 GUEST_LIMIT_MESSAGE = 'Guest preview limit reached. Full access is coming with MySelfPay accounts.'

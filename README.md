@@ -32,6 +32,10 @@ DATABASE_URL pointing to the intended PostgreSQL database, using the pooled Neon
 endpoint. Never commit or paste credentials. Do not run test_postgres against the
 review database: it drops test tables.
 
+## Live database changes — mandatory policy
+
+Before running any operational SQL on live Neon, follow [the change-control policy](ops/change-records/POLICY.md). Commit the SQL, test it on a separate Neon branch copy, and obtain Vikram's approval of the change record before live execution. This includes read-only operational queries. Use [the record template](ops/change-records/TEMPLATE.md). Older setup instructions below do not override this policy.
+
 ## Existing hosted database
 
 Run ops/upgrade_guest_tier.sql as owner before testing this Preview. No automatic

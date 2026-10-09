@@ -12,6 +12,7 @@ def normalize(text):
     return ' '.join(''.join(c for c in unicodedata.normalize('NFKD', text.casefold()) if not unicodedata.combining(c)).split())
 
 def place_name(name):
+    name=re.sub(r' \(balance\)$','',name,flags=re.I)
     return re.sub(r' (?:city and borough|unified government|consolidated government|municipality|borough|village|town|city|CDP)$', '', name, flags=re.I)
 
 @lru_cache(maxsize=1)
@@ -27,7 +28,8 @@ def _index():
                     states[normalize(name)]=item;states[normalize(row['state'])]=item
                 elif kind=='zcta':zips.setdefault(row['zip'],[]).append(item)
                 else:
-                    for key in set([normalize(name),normalize(row['name'])]):names.setdefault(key,[]).append(item)
+                    aliases={('Boise City','ID'):['Boise'],('Nashville-Davidson metropolitan government','TN'):['Nashville']}
+                    for key in set([normalize(name),normalize(row['name'])]+[normalize(a) for a in aliases.get((name,row['state']),[])]):names.setdefault(key,[]).append(item)
     return names,zips,states
 
 def lookup(text):
@@ -49,3 +51,4 @@ def lookup(text):
             match='suggestion'
             candidates=[v for key in get_close_matches(q,names,n=5,cutoff=.78) for v in names[key]]
     return [dict(v,match=match) for v in candidates if not state or v['state']==state]
+

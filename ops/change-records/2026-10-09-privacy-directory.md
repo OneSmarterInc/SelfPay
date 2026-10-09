@@ -38,3 +38,29 @@ No live SQL, staging, publication, cleanup, branch creation/deletion or sync act
 
 ## Tests
 22 targeted tests pass (guest privacy, proximity, offline geo, import locations); frontend JavaScript syntax check passes. These are local tests, not Neon-copy or deployment verification.
+
+
+## Follow-up audit and implementation, 9 October 2026
+Supersedes the historical 99-entry baseline and coordinate-fingerprint concern above.
+The last observed Vercel SQL status result reported active batch
+`8e7d7758-6c76-4fb3-9803-825cc1f77567`, 103 entries and 13 offers.
+Entry fingerprint: `a0c23f2d2019f448345824ef1e244efaaa3cf444f10b76256a7f9b4a71ad46aa`.
+Offer fingerprint: `2a3b5859b77acfcd406614c7d2f3c49d2a4d9877edd2ea4c957067c0956976cd`.
+This is observed prior-session evidence, not a new query in this change.
+The user authorized direct Vercel database work without creating a copy; that overrides
+his earlier copy requirement for this requested work. No branch-copy test is claimed.
+No live mutation has been executed in this follow-up.
+
+The importer now validates a mapping against the original input source fingerprint OR
+the exact enriched fingerprint. Only deterministic derived coordinates are added after
+the original-source hash is captured. Source price, scope, name, date and other edits
+still withhold mappings. No mapping hashes or prices were rewritten.
+The local 74-entry repository fixture stages 57 offers with zero withheld mappings;
+this is NOT a live replacement package. Do not replace the live 103-entry catalog
+with either the 74-entry seed or older 99-entry bundle.
+
+Remaining execution requirements: obtain the complete current 103-entry source,
+pin source/mapping hashes, review the resulting differences and unresolved locations,
+commit the exact execution/rollback package and record its approved scope. Live
+publication, historical guest preference deletion, platform logging verification and
+deployed browser QA remain outstanding. Directory sync remains paused.

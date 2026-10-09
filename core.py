@@ -92,7 +92,7 @@ def stage_import(source, mappings, path=DB):
     entries=read_source(source); maps=json.loads(Path(mappings).read_text(encoding='utf-8'))
     if not isinstance(entries,list) or not entries: raise ValueError('Source must contain an entry list')
     from facility_locations import enrich, validate_locations
-    errors=[]; names=set(); normalized=[]; unplaced=[]; enriched=[]
+    errors=[]; names=set(); normalized=[]; unplaced=[]; enriched=[]; source_hashes={}
     for entry in entries:
         if not isinstance(entry,dict): raise ValueError('Malformed source entry')
         name=entry.get('name','').strip()
@@ -101,6 +101,7 @@ def stage_import(source, mappings, path=DB):
         if urlparse(entry.get('source','')).scheme!='https': errors.append(f'{name}: invalid source URL')
         try: dt.date.fromisoformat(entry.get('checked','')[:10])
         except ValueError: errors.append(f'{name}: missing or invalid verification date')
+        source_hashes[name]=digest({k:v for k,v in entry.items() if k!='row'})
         entry, issues=enrich(entry)
         validate_locations(entry)
         enriched.append(entry)
@@ -126,7 +127,7 @@ def stage_import(source, mappings, path=DB):
             if m.get('id') in mapping_ids: raise ValueError('Duplicate offer mapping id')
             mapping_ids.add(m.get('id'))
             match=lookup.get(m.get('entry_name'))
-            if not match or m.get('entry_hash')!=match[1]:
+            if not match or m.get('entry_hash') not in (match[1],source_hashes.get(m.get('entry_name'))):
                 report['withheld_offers'].append({'id':m.get('id'),'reason':'Source entry changed or missing; mapping needs human review'})
                 continue
             if m.get('type') not in ('fixed','starting','range','maximum','conflict','average','quote'): raise ValueError('Invalid price type')
@@ -267,11 +268,13 @@ def search(raw,path=DB):
         within=[o for o in result if o['_distance']<=s['radius']]
         fallback=bool(result and not within)
         result=within if within else result[:3]
+        represented_names={o['entry']['name'] for o in result+programs}
         priced_names={o['entry']['name'] for o in data['offers'] if o.get('mod')==s['mod'] and o.get('amount') is not None}
         for entry in data['entries']:
-            if not s['mod'] or not s['body'].strip() or entry.get('location_type')=='program' or entry['name'] in priced_names:continue
+            if not s['mod'] or not s['body'].strip() or entry.get('location_type')=='program' or entry['name'] in priced_names or entry['name'] in represented_names:continue
             wording=str(entry.get(s['mod'].lower(),'')).strip()
-            if not wording or wording.casefold() in ('n/a','none','not offered','no'):continue
+            if not wording or wording.casefold() in ('n/a','none','no'):continue
+            if __import__('re').search(r'\b(?:not (?:offered|listed|verified|available)|unavailable)\b',wording,__import__('re').I):continue
             # Entries with published price wording but unmapped offers are not quote-only.
             if '$' in wording or any(c.isdigit() for c in wording):continue
             match=nearest(resolved,entry.get('locations',[]))
@@ -306,7 +309,7 @@ def agent(message,raw,path=DB):
         if money:s['budget']=float(money[1])
         place=re.search(r'\b(?:near|in)\s+(.+?)(?=\s+(?:under|below|budget|with|without)\b|[.!?]|$)',message,re.I)
         if place:s['location']=place.group(1).strip()
-        elif __import__('geo').lookup(message.strip()) or message.strip().casefold()=='national':s['location']=message.strip()
+        elif any(c['match']=='exact' for c in __import__('geo').lookup(message.strip())) or message.strip().casefold()=='national':s['location']=message.strip()
         reply='Is your ordered exam without contrast, with contrast, or without and with contrast? If unsure, confirm with your clinician.' if s['contrast']=='unknown' else 'Your search has been updated. Review the sourced candidates below and confirm the exact study, eligibility and total with the facility. These are published references, not current quotes.'
     guidance_blocked=bool(re.search(r'what.*(test|scan).*need|diagnos|symptom|should i get',low)) or 'second opinion' in low
     if not guidance_blocked and not s['mod']:reply='What imaging service are you looking for: MRI or CT? Use the exam specified by your clinician.'
@@ -454,4 +457,5 @@ def guest_agent(token, ip, message, raw, conversation_id, limits, path=DB):
         usage[conversation_id]=usage.get(conversation_id,0)+1
         db.execute('INSERT INTO guest_usage VALUES(?,?,?) ON CONFLICT(session_hash) DO UPDATE SET payload=excluded.payload',(key,member['member_id'],canonical(usage)))
     return {**answer,'conversation_id':conversation_id,'usage':usage}
+
 

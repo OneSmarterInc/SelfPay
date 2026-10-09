@@ -63,7 +63,7 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   assert.doesNotMatch(node('app').innerHTML,/reviewed offers/);
   assert.match(node('app').innerHTML,/Directory locations in your search area/);
   vm.runInContext("state.budget=500;render()",ctx);
-  assert.match(vm.runInContext("groupedCards(offers.filter(o=>o.type==='fixed'&&o.amount>500))",ctx),/Above your budget/);
+  assert.match(vm.runInContext("groupedCards(offers.filter(o=>o.type==='fixed'&&o.amount>500))",ctx),/Above your published-price budget/);
   vm.runInContext("state=defaults();state.mod='MRI';state.body='Knee';state.contrast='without';render()",ctx);
   assert.match(vm.runInContext('chips()',ctx),/Without contrast/);
   assert.doesNotMatch(vm.runInContext('chips()',ctx),/<span[^>]*>\s*<\/span>/);
@@ -116,3 +116,4 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   assert.equal(vm.runInContext('account',ctx),null);
   console.log('Client workflow checks, including guest privacy, quotas and catalog failure recovery, passed with stub transport. No browser visual QA.');
 }
+

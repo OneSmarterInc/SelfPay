@@ -34,6 +34,35 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(len(offer_locations(a)),1)
         self.assertAlmostEqual(miles(self.loc(),self.loc()),0)
         self.assertAlmostEqual(miles(dict(latitude=0,longitude=0),dict(latitude=1,longitude=0)),69.09,places=1)
+    def test_quote_fallback_outside_radius(self):
+        entries=[self.entry(str(i)) for i in range(4)]
+        for i,e in enumerate(entries):e['locations']=[self.loc(42+i)]
+        r=self.run_search([],entries)
+        self.assertEqual([e['name'] for e in r['nearby_unpriced']],['0','1','2'])
+        self.assertIn('outside your radius',r['location_notice'])
+
+    def test_price_filter_fallback_preserves_search(self):
+        r=self.run_search([self.offer('a')],type='range',budget=100)
+        self.assertEqual(r['offers'][0]['id'],'a')
+        self.assertEqual(r['search']['type'],'range')
+        self.assertIn('Above',r['offers'][0]['budget_status'])
+        self.assertIn('other price types',r['location_notice'])
+
+    def test_fallback_never_substitutes_exam_or_contrast(self):
+        a=self.offer('a');a['exam_terms']=['brain']
+        self.assertFalse(self.run_search([a],type='range')['offers'])
+        a.pop('exam_terms')
+        self.assertFalse(self.run_search([a],type='range',contrast='with')['offers'])
+        a['mod']='CT'
+        self.assertFalse(self.run_search([a],type='range')['offers'])
+
+    def test_agent_uses_quote_fallback(self):
+        e=self.entry('far');e['locations']=[self.loc(45)]
+        with patch.object(core,'catalog',return_value=dict(version='test',offers=[],entries=[e])):
+            r=core.agent('knee MRI near Kettering, OH',{})
+        self.assertEqual(r['nearby_unpriced'][0]['name'],'far')
+        self.assertIn('outside your radius',r['reply'])
+
     def test_agent_and_radius_validation(self):
         a=self.offer('a')
         with patch.object(core,'catalog',return_value=dict(version='test',offers=[a],entries=[a['entry']])):
@@ -42,3 +71,4 @@ class SearchTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.run_search([],radius=5)
 
 if __name__=='__main__':unittest.main()
+

@@ -278,9 +278,24 @@ def search(raw,path=DB):
             # Entries with published price wording but unmapped offers are not quote-only.
             if '$' in wording or any(c.isdigit() for c in wording):continue
             match=nearest(resolved,entry.get('locations',[]))
-            if match and match[0]<=s['radius']:nearby.append(annotate(entry,match))
+            if match:nearby.append(annotate(entry,match))
         nearby.sort(key=lambda e:e['_distance'])
+        nearby_within=[e for e in nearby if e['_distance']<=s['radius']]
+        if nearby_within:nearby=nearby_within
+        elif not result and not programs:
+            nearby=nearby[:3]
+            if nearby:
+                notice+=f" No matching offers or quote facilities within {s['radius']} miles. Showing the nearest quote facilities outside your radius; confirm the exact exam and contrast."
+        else:nearby=[]
         if unlocated:notice+=' Some offers lack verified price-location coordinates and are omitted from distance results; browse National to review them.'
+    # Relax only the presentation filter, never the exam or contrast constraints.
+    if spatial and not result and not programs and s['type']!='all':
+        alternative=search(dict(s,type='all'),path)
+        if alternative['offers'] or alternative['programs']:
+            alternative['search']['type']=s['type']
+            alternative['location_notice']+=f" No offers match your {s['type']} price filter. Showing other price types for the same requested service; prices and scope require confirmation."
+            alternative['fallback']=True
+            return alternative
     if not spatial and s['sort']=='price':result.sort(key=lambda o:o['amount'] if o['type']=='fixed' and o['amount'] is not None else float('inf'))
     selected=set(o['id'] for o in result+programs);s['selected']=[x for x in s['selected'] if x in selected]
     return {'version':data['version'],'search':s,'offers':result,'count':len(result),'location_suggestions':suggestions if needs_choice else [],'location_notice':notice,'resolved_location':resolved,'programs':programs,'nearby_unpriced':nearby,

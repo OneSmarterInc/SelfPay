@@ -2,7 +2,7 @@
 
 User authorization: “do this remaing changes” after listing owner function/status capture, historical records, Preview protection, cleanup dry run, and quota reservation. Read-only capture only; no schema/catalog mutation authorized here. Earlier user-directed exception to Neon-copy testing persists for this work. No operator identity or historical approval will be invented.
 
-SQL: ops/sql/capture-owner-evidence-2026-10-09.sql. Exact commit pending. Query uses existing built-in PostgreSQL introspection and status function; no writes, secrets or member records.
+SQL: ops/sql/capture-owner-evidence-2026-10-09.sql. Exact committed SQL: `6d7a441a3dd002efdf46a9de334f07eed0eb4ee0`. Query uses existing built-in PostgreSQL introspection and status function; no writes, secrets or member records.
 
 Cleanup: manually run retention workflow with apply=false only. Do not trigger deletion.
 

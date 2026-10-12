@@ -43,7 +43,15 @@ def export():
                 if cur.fetchone() is None:
                     raise ValueError('Catalog verification returned no row')
                 print('Snapshot and catalog checks passed', flush=True)
-                env = dict(os.environ, PGDATABASE=dsn, PGOPTIONS='-c default_transaction_read_only=on')
+                env = {key: value for key, value in os.environ.items() if not key.startswith('PG')}
+                # PGDATABASE alone does not expand a URI into connection parameters.
+                for key, variable in {'host': 'PGHOST', 'port': 'PGPORT', 'user': 'PGUSER',
+                                      'password': 'PGPASSWORD', 'dbname': 'PGDATABASE',
+                                      'sslmode': 'PGSSLMODE', 'channel_binding': 'PGCHANNELBINDING',
+                                      'sslrootcert': 'PGSSLROOTCERT'}.items():
+                    if key in config:
+                        env[variable] = config[key]
+                env['PGOPTIONS'] = '-c default_transaction_read_only=on'
                 # Never expose DSN in command arguments or subprocess error logs.
                 subprocess.run(['pg_dump', '--format=plain', '--no-owner', '--no-acl',
                                 '--snapshot=' + snapshot, '--file=' + str(dump)],

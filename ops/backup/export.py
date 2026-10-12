@@ -1,13 +1,10 @@
 """Export one consistent snapshot; requires a dedicated, audited read-only role."""
-import hashlib
-import json
 import os
 from pathlib import Path
 import subprocess
 import sys
-import tarfile
 import tempfile
-from datetime import datetime, timezone
+from git_backup import backup_date, publish
 
 
 def export():
@@ -27,6 +24,7 @@ def export():
     recipient = os.environ['BACKUP_AGE_RECIPIENT']
     if not recipient.startswith('age1'):
         raise ValueError('An age public recipient is required')
+    day = backup_date()
     with tempfile.TemporaryDirectory(prefix='selfpay-backup-') as tmp:
         root = Path(tmp)
         dump = root / 'database.dump'
@@ -42,7 +40,8 @@ def export():
                 counts_sql = Path('ops/sql/backup-catalog-counts.sql').read_text()
                 counts_sql = counts_sql.replace('BEGIN TRANSACTION READ ONLY;', '').replace('ROLLBACK;', '')
                 cur.execute(counts_sql)
-                counts = dict(zip([d.name for d in cur.description], cur.fetchone()))
+                if cur.fetchone() is None:
+                    raise ValueError('Catalog verification returned no row')
                 env = dict(os.environ, PGDATABASE=dsn, PGOPTIONS='-c default_transaction_read_only=on')
                 # Never expose DSN in command arguments or subprocess error logs.
                 subprocess.run(['pg_dump', '--format=custom', '--no-owner', '--no-acl',
@@ -53,19 +52,11 @@ def export():
             conn.close()
         subprocess.run(['pg_restore', '--list', str(dump)], check=True,
                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        manifest = {'created_at': datetime.now(timezone.utc).isoformat(),
-                    'source_branch': 'br-rapid-mouse-b7clh18t', 'counts': counts,
-                    'dump_sha256': hashlib.file_digest(dump.open('rb'), 'sha256').hexdigest()}
-        (root / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-        archive = root / 'backup.tar'
-        with tarfile.open(archive, 'w') as tar:
-            for name in ('database.dump', 'manifest.json'):
-                tar.add(root / name, arcname=name)
-        encrypted = root / 'backup.tar.age'
-        subprocess.run(['age', '-r', recipient, '-o', str(encrypted), str(archive)],
+        encrypted = root / ('database-' + day + '.dump.age')
+        subprocess.run(['age', '-r', recipient, '-o', str(encrypted), str(dump)],
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        subprocess.run(['node', 'ops/backup/blob.mjs', str(encrypted)], check=True)
-        print('Encrypted backup uploaded and read-back hash verified.')
+        publish(encrypted, day)
+
 
 
 if __name__ == '__main__':

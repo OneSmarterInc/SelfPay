@@ -4,7 +4,7 @@ on:
     - cron: '30 2 * * *'
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: selfpay-database-backup
   cancel-in-progress: false
@@ -12,7 +12,7 @@ jobs:
   export:
     if: vars.BACKUPS_ENABLED == 'true'
     runs-on: ubuntu-latest
-    container: postgres:18-bookworm
+    container: postgres:18-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
     timeout-minutes: 30
     environment: database-backups
     steps:
@@ -24,11 +24,12 @@ jobs:
           apt-get update -qq
           apt-get install -y --no-install-recommends python3 python3-psycopg2 git ca-certificates tzdata
       - name: Verify dump-only branch construction
-        run: python3 ops/backup/test_git_backup.py
+        run: python3 -m unittest discover -s ops/backup -p 'test_*.py'
       - name: Export SQL and create dated branch
         env:
           BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
           BACKUP_EXPECTED_HOST: ${{ vars.BACKUP_EXPECTED_HOST }}
           BACKUP_DATA_CLASS: ${{ vars.BACKUP_DATA_CLASS }}
-          GITHUB_TOKEN: ${{ github.token }}
+          BACKUP_REPO_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
         run: python3 ops/backup/export.py
+

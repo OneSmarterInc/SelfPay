@@ -62,11 +62,12 @@ class FunctionalTests(unittest.TestCase):
         s=self.payload()['search'];_,classic,_=self.req('/api/search',s,auth=a)
         _,chat,_=self.req('/api/agent',{'message':'Find knee MRI without contrast near Cincinnati, OH under $500','search':s},auth=a)
         self.assertEqual([o['id'] for o in classic['offers']],[o['id'] for o in chat['offers']])
-        self.assertGreaterEqual(classic['count'],3)
+        self.assertGreaterEqual(classic['count'],1)
+        self.assertTrue(all(o['contrast']=='without' for o in classic['offers']))
     def test_05_contrast_variants(self):
         a=self.sign_in();s=self.payload()['search'];s['contrast']='both'
         offers=self.req('/api/search',s,auth=a)[1]['offers']
-        self.assertTrue(all(o['contrast'] in ('both','unknown') for o in offers))
+        self.assertTrue(all(o['contrast']=='both' for o in offers))
         self.assertNotIn('aff-mri',[o['id'] for o in offers])
     def test_new_directory_locations_and_scope(self):
         base={'mod':'MRI','body':'Knee','contrast':'unknown','location':'Dayton, OH'}
@@ -187,11 +188,11 @@ class FunctionalTests(unittest.TestCase):
         query={'mod':'MRI','body':'Knee','location':'Auburn'}
         self.assertIn('Auburn, WA',core.search(query,self.db)['location_suggestions']);self.assertGreater(len(core.search(query,self.db)['location_suggestions']),1)
         answer=core.agent('Find knee MRI without contrast in Boise under $600',{},self.db)
-        self.assertIn('does not confirm',answer['reply'])
         self.assertTrue(answer['offers'])
+        self.assertTrue(all(o['contrast']=='without' for o in answer['offers']))
 
     def test_23_unknown_contrast_stays_unconfirmed(self):
-        s={**self.payload()['search'],'location':'Boise','budget':600}
+        s={**self.payload()['search'],'location':'Boise','budget':600,'contrast':'unknown'}
         r=core.search(s,self.db);self.assertEqual(r['offers'][0]['contrast'],'unknown');self.assertEqual(r['offers'][0]['budget_status'],'Budget fit unconfirmed')
 
     def guest(self):

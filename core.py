@@ -214,6 +214,15 @@ def search(raw,path=DB):
     from geo import lookup
     from proximity import nearest, offer_locations, annotate, covers
     candidates=lookup(s['location']) if location != 'national' else []
+    # Rank ambiguous exact cities by existing facility coverage; never auto-correct typos.
+    if len(candidates)>1 and all(c['match']=='exact' and c['kind']=='place' for c in candidates):
+        locations=[loc for entry in data['entries'] if entry.get('location_type')!='program' for loc in entry.get('locations',[])]
+        def distance(candidate):
+            match=nearest(candidate,locations)
+            return match[0] if match else float('inf')
+        candidates=sorted(candidates,key=lambda c:(distance(c),c['label']))
+        nearby_candidates=[c for c in candidates if distance(c)<=s['radius']]
+        if len(nearby_candidates)==1:candidates=nearby_candidates
     suggestions=list(dict.fromkeys(c['label'] for c in candidates))
     needs_choice=bool(candidates) and (len(suggestions)>1 or candidates[0]['match']!='exact')
     selected_state=None
@@ -238,15 +247,18 @@ def search(raw,path=DB):
         notice='We could not find that place. Please enter a five-digit ZIP code. Not every postal ZIP has a Census ZIP area.'
     spatial=bool(resolved and resolved['kind'] in ('place','zcta'))
     programs=[]; unlocated=[]
+    def same_exam(o):
+        if o['mod']!=s['mod']:return False
+        if s['contrast']!='unknown' and o['contrast']!=s['contrast']:return False
+        terms=o.get('exam_terms')
+        return not terms or any(__import__('re').search(r'(?<!\w)'+__import__('re').escape(term.casefold())+r'(?!\w)',s['body'].casefold()) for term in terms)
     if spatial and not notice:notice='Distances are approximate straight-line miles from the searched city center, not driving distances.'
     for original in data['offers']:
         o=dict(original)
         if not s['mod'] or not s['body'].strip() or not location:continue
         e=o['entry']
         if not spatial and selected_state and not covers(e,selected_state):continue
-        if o.get('exam_terms') and not any(term in s['body'].casefold() for term in o['exam_terms']):continue
-        if o['mod']!=s['mod'] or (s['type']!='all' and s['type']!=o['type']):continue
-        if s['contrast']!='unknown' and o['contrast'] not in (s['contrast'],'unknown'):continue
+        if not same_exam(o) or (s['type']!='all' and s['type']!=o['type']):continue
         if not spatial and not (location=='national' or location in o['region'].casefold() or location in e['area'].casefold() or location in [x.strip().casefold() for x in e['states'].split(';')]):continue
         o['match_status']='Exact body-part and protocol applicability requires confirmation'
         o['budget_status']='Budget fit unconfirmed'
@@ -288,23 +300,16 @@ def search(raw,path=DB):
                 notice+=f" No matching offers or quote facilities within {s['radius']} miles. Showing the nearest quote facilities outside your radius; confirm the exact exam and contrast."
         else:nearby=[]
         if unlocated:notice+=' Some offers lack verified price-location coordinates and are omitted from distance results; browse National to review them.'
-    # Always offer a real, located reviewed alternative for a complete,
-    # resolved search. Keep the requested filters and the original offer scope.
+    # Relax commercial filters only; preserve the ordered procedure.
     alternative_heading=''
     if spatial and not result and s['mod'] and s['body'].strip():
         alternatives=[]
         for original in data['offers']:
-            if original['entry'].get('location_type')=='program':continue
+            if original['entry'].get('location_type')=='program' or not same_exam(original):continue
             match=nearest(resolved,offer_locations(original))
             if not match:continue
             o=annotate(dict(original),match)
-            differences=[]; clinical_difference=False
-            if o['mod']!=s['mod']:
-                differences.append('Different modality: '+o['mod']);clinical_difference=True
-            if o.get('exam_terms') and not any(term in s['body'].casefold() for term in o['exam_terms']):
-                differences.append('Different exam: '+', '.join(o['exam_terms']));clinical_difference=True
-            if s['contrast']!='unknown' and o['contrast'] not in (s['contrast'],'unknown'):
-                differences.append('Different contrast: '+o['contrast']);clinical_difference=True
+            differences=[]
             if s['type']!='all' and s['type']!=o['type']:differences.append('Different price type: '+o['type'])
             if o['_distance']>s['radius']:differences.append('Outside selected radius')
             o['budget_status']='No budget set' if not s['budget'] else 'Budget fit unconfirmed'
@@ -313,18 +318,31 @@ def search(raw,path=DB):
             o['filter_differences']=differences
             o['reviewed_alternative']=True
             o['match_status']='Reviewed alternative — does not match all selected filters. Confirm your ordered exam with the facility; this is not a substitute test.'
-            alternatives.append((clinical_difference,o['_distance'],str(o['id']),o))
+            alternatives.append((o['_distance'],str(o['id']),o))
         if alternatives:
-            alternatives.sort(key=lambda item:item[:3])
-            result=[alternatives[0][3]]
+            alternatives.sort(key=lambda item:item[:2])
+            result=[alternatives[0][2]]
             fallback=True
             alternative_heading='Nearest reviewed alternative'
             nearby=[e for e in nearby if e['name']!=result[0]['entry']['name']]
-            notice+=' No reviewed facility offer matches all selected filters. Showing the nearest reviewed alternative, preferring the requested service before other exams. Differences are marked on the card; your filters are unchanged. This is not a substitute for your ordered exam.'
+            notice+=' No reviewed facility offer matches all selected filters. Showing the nearest reviewed alternative for the selected procedure. Differences are marked on the card; your filters are unchanged. This is not a substitute for your ordered exam.'
+    no_exam_price=bool(s['mod'] and s['body'].strip() and (spatial or location=='national' or selected_state) and not any(same_exam(o) and o.get('amount') is not None for o in data['offers']))
+    if no_exam_price:
+        notice+=' No listed facility publishes a price for this exam.'
+        if spatial:
+            quote_leads=[]
+            for entry in data['entries']:
+                if entry.get('location_type')=='program':continue
+                wording=str(entry.get(s['mod'].lower(),'')).strip()
+                if not wording or wording.casefold() in ('n/a','none','no'):continue
+                if __import__('re').search(r'\b(?:not (?:offered|listed|verified|available)|unavailable)\b',wording,__import__('re').I):continue
+                match=nearest(resolved,entry.get('locations',[]))
+                if match:quote_leads.append(annotate(entry,match))
+            nearby=sorted(quote_leads,key=lambda e:e['_distance'])[:3]
     if not spatial and s['sort']=='price':result.sort(key=lambda o:o['amount'] if o['type']=='fixed' and o['amount'] is not None else float('inf'))
     selected=set(o['id'] for o in result+programs);s['selected']=[x for x in s['selected'] if x in selected]
     return {'version':data['version'],'search':s,'offers':result,'count':len(result),'location_suggestions':suggestions if needs_choice else [],'location_notice':notice,'resolved_location':resolved,'programs':programs,'nearby_unpriced':nearby,
-            'fallback':fallback,'results_heading':alternative_heading or (f"Nothing within {s['radius']} miles. Nearest options:" if fallback else ''),
+            'no_exam_price':no_exam_price,'fallback':fallback,'results_heading':alternative_heading or (f"Nothing within {s['radius']} miles. Nearest options:" if fallback else ''),
             'program_heading':'Programs available in '+next((c['name'] for c in lookup(selected_state or '') if c['kind']=='state'),selected_state or ''),
             'unlocated_offer_count':len(unlocated),
             'program_entries':[e for e in data['entries'] if spatial and s['mod'] and s['body'].strip() and e.get('location_type')=='program' and covers(e,selected_state) and e['name'] not in {o['entry']['name'] for o in programs}]}
@@ -501,5 +519,6 @@ def guest_agent(token, ip, message, raw, conversation_id, limits, path=DB):
     # lock. Failed generation consumes the attempt (no retry/refund loophole).
     answer=agent(message,raw,path)
     return {**answer,'conversation_id':conversation_id,'usage':usage}
+
 
 

@@ -1,6 +1,6 @@
 # October 12 SQL-dump restore preparation
 
-Status: READY FOR RESTORE CREDENTIAL; actual restore unperformed.
+Status: BLOCKED — saved restore URL targets live; refused before connection.
 
 The owner requested completion of the remaining developer tasks. This record
 covers only a disposable Neon target and the existing approved private dump.
@@ -47,3 +47,34 @@ Monthly restore/PITR testing still needs target provisioning and credentials.
 The manual workflow alone is not a monthly schedule or a successful drill.
 Retain baseline br-gentle-moon-b74wdsig until at least 2026-10-19 08:46:32Z.
 Review old test-branch dependencies after that time before any cleanup.
+
+## Execution result — October 12, 2026
+
+The owner saved RESTORE_DATABASE_URL at approximately 20:08 Asia/Kolkata and
+reported done. Its presence was verified without reading its value.
+
+- Run 38264664733 on main ba4edd504d9cf4d2692fdca23bcd35a54102f0b4 downloaded
+  and verified the immutable dump; restore failed with the original redacted error.
+- Run 38265000429 on 97a26c40390b2312832899dec5a2812298f5f221 isolated the
+  failure to endpoint/TLS validation, before the connection stage.
+- Run https://github.com/OneSmarterInc/SelfPay/actions/runs/38265344349,
+  job 114865992886, code 5d700b665a891f77e5c304e2724b525449aa1d8d,
+  reported at 2026-10-12T14:46:50.8024856Z:
+  `Restore configuration: Live database endpoint refused`.
+- The immutable source validation passed each time. No database connection or
+  SQL restore was attempted by the diagnostic runs. No live write occurred.
+- Temporary runner dump cleanup succeeded. No dump artifact was uploaded.
+
+Next action: replace RESTORE_DATABASE_URL using the connection for branch
+br-lively-recipe-b7948zn5 / dump-restore-20261012, database restore_20261012,
+direct host ep-rough-sky-b78gwt56.c-13.us-east-1.aws.neon.tech, TLS enabled.
+The user must securely enter/save the credential; never put it in this record.
+Do not change expected target inputs to match a live URL or weaken the guard.
+Re-run only after the correct disposable target credential is saved.
+
+## Repository access verified
+
+GitHub Manage access for private OneSmarterInc/MySelfPay_Backup showed zero
+collaborators after secure owner reauthentication on October 12. Owner-only
+human access is confirmed; no developer was invited. Token's repository-only
+permission scope remains unverified.

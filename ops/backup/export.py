@@ -35,7 +35,9 @@ def export():
                 cur.execute("SELECT rolsuper, rolcreaterole, rolcreatedb, rolreplication, rolbypassrls FROM pg_roles WHERE rolname=current_user")
                 if any(cur.fetchone()):
                     raise ValueError('Backup role must have no administrative privileges')
-                require_synthetic(cur)
+                require_synthetic(cur,
+                                  approved_test_date=os.environ.get('BACKUP_APPROVED_TEST_DATE', ''),
+                                  today=day)
                 cur.execute('SELECT pg_export_snapshot()')
                 snapshot = cur.fetchone()[0]
                 counts_sql = Path('ops/sql/backup-catalog-counts.sql').read_text()

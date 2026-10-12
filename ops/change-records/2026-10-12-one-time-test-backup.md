@@ -51,3 +51,20 @@ After the precondition is legitimately satisfied, remaining tests include a
 same-snapshot export, restore into an empty isolated Neon target, comparison of
 the six catalog fields and transient-data exclusions, and an evidence review.
 The owner must explicitly approve proceeding before any destination upload.
+
+## Subsequent explicit approval — 2026-10-12 19:34:50 Asia/Kolkata
+
+Owner: "yes confirm I waive the branch test and approve today’s test-data backup to MySelfPay_Backup."
+
+This later instruction supersedes the earlier refusal of a branch-test waiver.
+Restore the previously prepared manual exception from c8ec81940489b87ca97b9c365aba41a458b4df1e
+for today's owner-confirmed test dataset only. It permits non-guest accounts and
+conversations on October 12; recent corrections still stop export. Scheduled
+backups stay paused. Private destination and read-only role checks remain.
+SQL is unchanged at 9ff7de313afe5641dc4ed54da021abe9fcbab893:
+ops/sql/backup-synthetic-check.sql and ops/sql/backup-catalog-counts.sql,
+plus existing role-privilege and pg_export_snapshot SELECTs in export.py.
+The earlier failed structural preflight remains valid historical evidence;
+no successful restore is claimed. Approved output: backup-2026-10-12 containing
+database-2026-10-12.sql in private OneSmarterInc/MySelfPay_Backup.
+Status: APPROVED FOR ONE-TIME EXECUTION; execution outcome pending.

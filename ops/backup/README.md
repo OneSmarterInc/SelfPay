@@ -21,9 +21,9 @@ The owner selected this name instead of the task sheet's `SelfPay-backups`.
 5. Review `ops/change-records/2026-10-12-task-review.md` and the retrospective
    publication record. Complete POLICY.md's branch testing/approval for the new
    operational SQL before running the changed export against live.
-6. Keep `BACKUPS_ENABLED=false` until all prerequisites pass. On 12 October the
-   attempt to save this setting hit GitHub reauthentication; do not assume the
-   schedule is paused until the saved setting is verified.
+6. Keep `BACKUPS_ENABLED=false` until all prerequisites pass. On 12 October GitHub
+   reauthentication completed and the saved `false` value was verified; scheduled
+   exports are paused.
 
 The workflow runs at 02:30 UTC / 08:00 IST daily once enabled. Its normal
 GITHUB_TOKEN has Contents read only; only the destination token can publish.

@@ -37,14 +37,16 @@ new document's live-write or production-deployment approval gates.
    real people or seeded demo data. No contents were printed or committed. Do not
    bypass the guard or copy this dump into the new destination. Owner must decide
    an approved data-handling plan before exports resume.
-3. Attempt to set BACKUPS_ENABLED=false was stopped by GitHub reauthentication.
-   The setting was not verified saved; old scheduled export may still be enabled.
+3. GitHub reauthentication completed and `BACKUPS_ENABLED=false` was saved and
+   visibly verified on 12 October. Scheduled exports are paused.
 4. BACKUP_REPO_TOKEN must be created and saved by the owner. Token creation is not
    completed. Required scope: only MySelfPay_Backup, Contents read/write.
 5. Named developer username is unspecified; access restriction is unverified.
-6. Main branch protection is not configured by this change. GitHub integration
-   returned 403 for the protection endpoint; settings need authenticated owner
-   access. Require PRs and passing `test`, with no direct pushes/admin bypass.
+6. Created a `main` protection rule through authenticated GitHub settings: PR
+   required, one approval, passing `test`, up-to-date branch, no admin bypass,
+   no force pushes or deletions. **GitHub marks it Not enforced** on the current
+   private-repository plan and requires a Team/Enterprise organization account.
+   No upgrade was purchased. Do not claim that direct pushes are prevented.
 7. Backup reader already exists and today's earlier export succeeded. Do not
    recreate it or claim that its original creation followed an unobserved process.
 8. Actual SQL restore, separate-Neon-branch test of the new operational checks,
@@ -63,7 +65,9 @@ new document's live-write or production-deployment approval gates.
 - Backup unit tests: 15 passed (guard conditions, date cutoff, destination privacy,
   dated root commit, retention month/year boundaries, restore-target rejection).
 - Node client workflow checks passed with stub transport; no visual browser QA.
-- This is local code verification, not a live export, Neon test or restore proof.
+- Both GitHub `test` checks on code commit
+  `1a6b0793093229e6e5f5dbff2010649a6f2643d3` completed successfully.
+- These checks are not a live export, Neon test or restore proof.
 
 ## Approval sequence
 

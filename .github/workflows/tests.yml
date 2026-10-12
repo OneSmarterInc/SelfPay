@@ -30,6 +30,8 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://selfpay:selfpay-test@localhost/selfpay_test
         run: python -m unittest test_postgres test_guest_limits test_guest_tier -v
+      - name: Backup safety and retention tests
+        run: python -m unittest discover -s ops/backup -p 'test_*.py'
       - name: Client workflow tests
         run: node test_ui.mjs
 
@@ -43,3 +45,4 @@ jobs:
           DIRECTORY_SYNC_TEST_ALLOW_RESET: '1'
           DIRECTORY_SYNC_TEST_DATABASE_URL: postgresql://directory_test:local-directory-test-only@127.0.0.1/neondb
         run: python -m unittest test_directory_sync_postgres test_directory_sync_query_postgres test_directory_apply_repair test_coordinate_publication test_remaining_publication -v
+

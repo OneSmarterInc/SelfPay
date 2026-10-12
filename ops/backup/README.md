@@ -1,25 +1,85 @@
-# Daily SQL dump branches
+# Daily private SQL backups
 
-The user's latest instruction on 12 October 2026 explicitly removes encryption. This supersedes earlier age/Blob setup instructions for daily Git backups.
+Destination: **OneSmarterInc/MySelfPay_Backup**, private. Each `backup-YYYY-MM-DD`
+branch has one plain SQL file and a parentless commit; the date is Asia/Kolkata.
+The owner selected this name instead of the task sheet's `SelfPay-backups`.
 
-Branch `backup-YYYY-MM-DD` contains only `database-YYYY-MM-DD.sql`, an unencrypted PostgreSQL plain SQL dump. Each branch has a parentless commit with no application files/history. It exports all accessible database schema and data without table filters. Ownership and ACL restoration are excluded; server-level roles, passwords and files outside this database are not included. Export failure prevents publication.
+## Activation prerequisites
 
-Date uses India time at job start; scheduled daily at 08:00 IST. Existing date branches are never overwritten. No automated deletion is enabled. Repository readers can read the entire dump.
+1. Make the destination private. On 12 October its API reported public; the
+   requested privacy change was blocked by automatic approval review because
+   GitHub disclosed that Advanced Security would be disabled. Owner decision is
+   required before that browser action can proceed. Do not upload while public.
+2. Confirm the owner and named developer GitHub usernames. Restrict collaborators
+   accordingly; do not guess identities or grant access to unnamed people.
+3. The owner creates a fine-grained token with **Contents read/write on
+   MySelfPay_Backup only** and stores it as `BACKUP_REPO_TOKEN` in SelfPay's
+   `database-backups` environment. Never put the token in chat or a Git file.
+4. Keep `BACKUP_DATABASE_URL` as the dedicated `selfpay_backup_reader` URL, with
+   TLS and the approved direct host. Keep `BACKUP_EXPECTED_HOST` and
+   `BACKUP_DATA_CLASS=synthetic`. The declaration is not a substitute for checks.
+5. Review `ops/change-records/2026-10-12-task-review.md` and the retrospective
+   publication record. Complete POLICY.md's branch testing/approval for the new
+   operational SQL before running the changed export against live.
+6. Keep `BACKUPS_ENABLED=false` until all prerequisites pass. On 12 October GitHub
+   reauthentication completed and the saved `false` value was verified; scheduled
+   exports are paused.
 
-## Setup still pending
-GitHub environment `database-backups`:
-- Secret BACKUP_DATABASE_URL: dedicated selfpay_backup_reader direct Neon URL with TLS.
-- Variable BACKUP_EXPECTED_HOST: exact approved direct live host.
-- Variable BACKUP_DATA_CLASS: synthetic, after confirming data classification.
+The workflow runs at 02:30 UTC / 08:00 IST daily once enabled. Its normal
+GITHUB_TOKEN has Contents read only; only the destination token can publish.
+The PostgreSQL image is pinned to the official registry digest resolved on
+12 October 2026.
 
-Set repository variable BACKUPS_ENABLED=true only after credentials, access review and successful first test. Workflow must be merged onto the default branch for the daily schedule. No encryption key, Blob store or personal GitHub token is required; the workflow uses GITHUB_TOKEN.
+## Data checks and contents
 
-## Restore
-Use PostgreSQL 18 psql against a verified empty test database:
+Before pg_dump, in the same repeatable-read snapshot, stop on any non-guest
+member, any conversation, or a correction created on/after 13 October 2026
+00:00 Asia/Kolkata. Print the fixed stop message without row contents. Today's
+old-format dump meets the first two stop conditions, so migration is blocked;
+this does not establish whether those records are real or demo records.
+
+All database schema and other table data are exported, except **data only** for
+public.sessions, public.login_limits and public.guest_usage. Ownership/ACL
+commands and cluster roles/passwords are not included. The dump contains a
+comment with six catalog fields from its own consistent snapshot.
+
+After verifying upload, retain the newest 14 daily branches plus the earliest
+available daily branch in each month. Other refs, invalid dates and future dates
+are untouched. Pruning verifies a one-file parentless tree and uses a ref lease.
+Existing date branches are never overwritten. Retention applies only to the
+new private destination, not the previous backup in SelfPay.
+
+## Restore verification
+
+`restore_verify.py` is prepared; **no actual SQL restore is yet verified**.
+Create a new isolated Neon branch with an empty database and record its parent,
+branch ID and direct endpoint. A normal branch copy containing existing tables
+is intentionally rejected. Follow POLICY.md before running approved SQL.
+
+Set `RESTORE_DATABASE_URL`, `RESTORE_BRANCH_ID`, and `RESTORE_EXPECTED_HOST`
+privately for that disposable database. Do not use the live endpoint or backup
+reader credentials. Download a trusted new-format SQL dump from the private
+backup repository, then run with PostgreSQL 18 tools and psycopg2 installed:
+
 ```sh
-psql -X --set=ON_ERROR_STOP=1 --single-transaction --file=database-2026-10-12.sql
+python3 ops/backup/restore_verify.py /secure/path/database-YYYY-MM-DD.sql
 ```
-Supply the target through secure PG* environment variables. Verify counts and record actual results. Never use live for a restore test.
 
-## Validation and status
-Local tests cover date rollover, parentless one-file branch construction and invalid-dump rejection. Dumps must be under 95 MiB and have PostgreSQL header/completion markers; these markers are structural checks, not proof of recoverability. End-to-end export and SQL restore have not run. Prior Neon PITR test is separate and passed. Old Blob helper files are unused. Today's real Git dump branch is still pending a working direct database connection.
+The script checks Neon branch identity and an empty destination, restores in one
+transaction with ON_ERROR_STOP, and compares all six fields with the dump's
+snapshot manifest. It does not create/delete branches or connect to live. Record
+actual results and independently compare with live only under an approved query
+record; live may have changed since the snapshot. The old October 12 dump has
+no manifest and requires a separately reviewed restore plan using its recorded
+snapshot counts; it must not be edited or passed off as a newly checked dump.
+
+Monthly restore scheduling remains blocked on working Neon restore access and
+completion of the first drill. No scheduled restore success is claimed. Preserve
+the October 12 baseline and test branches until the baseline is no longer needed
+and the minimum retention deadline (19 October 08:46:32 UTC) has passed.
+
+## Local verification
+
+```sh
+python3 -m unittest discover -s ops/backup -p 'test_*.py'
+```

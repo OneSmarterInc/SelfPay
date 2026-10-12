@@ -1,10 +1,12 @@
 """Export one consistent snapshot; requires a dedicated, audited read-only role."""
+import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from git_backup import backup_date, publish
+from git_backup import backup_date, publish, verify_destination
+from synthetic_guard import require_synthetic, NonSyntheticData
 
 
 def export():
@@ -21,26 +23,26 @@ def export():
         raise ValueError('Use the approved direct live host')
     if os.environ.get('BACKUP_DATA_CLASS') != 'synthetic':
         raise ValueError('Only synthetic-data exports are approved')
-    print('Connection configuration validated', flush=True)
+    verify_destination()
     day = backup_date()
     with tempfile.TemporaryDirectory(prefix='selfpay-backup-') as tmp:
         root = Path(tmp)
         dump = root / 'database.sql'
         conn = psycopg2.connect(dsn, connect_timeout=30)
         try:
-            print('Database connection established', flush=True)
             conn.set_session(readonly=True, isolation_level='REPEATABLE READ')
             with conn.cursor() as cur:
                 cur.execute("SELECT rolsuper, rolcreaterole, rolcreatedb, rolreplication, rolbypassrls FROM pg_roles WHERE rolname=current_user")
                 if any(cur.fetchone()):
                     raise ValueError('Backup role must have no administrative privileges')
-                print('Reader role validated', flush=True)
+                require_synthetic(cur)
                 cur.execute('SELECT pg_export_snapshot()')
                 snapshot = cur.fetchone()[0]
                 counts_sql = Path('ops/sql/backup-catalog-counts.sql').read_text()
                 counts_sql = counts_sql.replace('BEGIN TRANSACTION READ ONLY;', '').replace('ROLLBACK;', '')
                 cur.execute(counts_sql)
-                if cur.fetchone() is None:
+                counts = cur.fetchone()
+                if counts is None:
                     raise ValueError('Catalog verification returned no row')
                 print('Snapshot and catalog checks passed', flush=True)
                 env = {key: value for key, value in os.environ.items() if not key.startswith('PG')}
@@ -54,8 +56,13 @@ def export():
                 env['PGOPTIONS'] = '-c default_transaction_read_only=on'
                 # Never expose DSN in command arguments or subprocess error logs.
                 subprocess.run(['pg_dump', '--format=plain', '--no-owner', '--no-acl',
+                                '--exclude-table-data=public.sessions',
+                                '--exclude-table-data=public.login_limits',
+                                '--exclude-table-data=public.guest_usage',
                                 '--snapshot=' + snapshot, '--file=' + str(dump)],
                                env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            with dump.open('a') as output:
+                output.write('\n-- SelfPay catalog snapshot: ' + json.dumps([str(value) for value in counts]) + '\n')
             conn.rollback()
         finally:
             conn.close()
@@ -67,6 +74,9 @@ def export():
 if __name__ == '__main__':
     try:
         export()
+    except NonSyntheticData:
+        print('Backup stopped: non-synthetic data detected. Owner approval required.', file=sys.stderr)
+        sys.exit(1)
     except subprocess.CalledProcessError as exc:
         # Classify stderr without printing credentials, SQL, or data.
         detail = exc.stderr or b''
@@ -112,3 +122,4 @@ if __name__ == '__main__':
             print('PostgreSQL SQLSTATE: ' + code, file=sys.stderr)
         print('Backup failed; no success recorded. Check configuration and credentials privately.', file=sys.stderr)
         sys.exit(1)
+

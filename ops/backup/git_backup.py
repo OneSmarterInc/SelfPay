@@ -1,5 +1,8 @@
 """Publish exactly one SQL dump on a new, parentless date branch."""
 import base64
+import json
+import re
+import urllib.request
 from datetime import date, datetime
 import os
 from pathlib import Path
@@ -45,10 +48,9 @@ def create_commit(directory, SQL, day):
 
 
 def publish(SQL, day):
-    repository = os.environ['GITHUB_REPOSITORY']
-    if repository != 'OneSmarterInc/SelfPay':
-        raise ValueError('Unexpected repository')
-    token = os.environ['GITHUB_TOKEN']
+    repository = BACKUP_REPOSITORY
+    verify_destination()
+    token = os.environ['BACKUP_REPO_TOKEN']
     remote = f'https://github.com/{repository}.git'
     auth = base64.b64encode(('x-access-token:' + token).encode()).decode()
     env = dict(os.environ, GIT_TERMINAL_PROMPT='0', GIT_CONFIG_COUNT='1',
@@ -65,4 +67,75 @@ def publish(SQL, day):
         actual = git(['ls-remote', '--exit-code', '--heads', remote, ref], tmp, env).stdout.split()[0]
         if actual != head:
             raise ValueError('Remote verification failed')
-    print(f'Verified backup-{day}: one SQL dump, no application history.')
+        prune_branches(tmp, remote, env, day)
+    print(f'Verified backup-{day}: one SQL dump, no application history; retention completed.')
+
+
+
+BACKUP_REPOSITORY = 'OneSmarterInc/MySelfPay_Backup'
+
+
+def verify_destination():
+    """Fail closed before reading/exporting data if the approved repo is not private."""
+    token = os.environ['BACKUP_REPO_TOKEN']
+    request = urllib.request.Request(
+        'https://api.github.com/repos/' + BACKUP_REPOSITORY,
+        headers={'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json',
+                 'X-GitHub-Api-Version': '2022-11-28'})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        repository = json.load(response)
+    if repository.get('full_name') != BACKUP_REPOSITORY or repository.get('private') is not True:
+        raise ValueError('Approved backup repository must be private')
+    if not repository.get('permissions', {}).get('push'):
+        raise ValueError('Backup token needs destination Contents read/write access')
+
+
+def retention_candidates(branches, today):
+    """Keep newest 14 daily branches and earliest available branch of each month.
+
+    Ignore other refs, invalid dates, and future dates. Only one-file backup refs
+    in the fixed destination repository are eligible; content is checked on delete.
+    """
+    cutoff = date.fromisoformat(today)
+    dated = []
+    for branch in branches:
+        if not re.fullmatch(r'backup-\d{4}-\d{2}-\d{2}', branch):
+            continue
+        try:
+            day = date.fromisoformat(branch[7:])
+        except ValueError:
+            continue
+        if day <= cutoff:
+            dated.append((day, branch))
+    dated.sort()
+    keep = {branch for _, branch in dated[-14:]}
+    months = set()
+    for day, branch in dated:
+        month = (day.year, day.month)
+        if month not in months:
+            keep.add(branch)
+            months.add(month)
+    return [branch for _, branch in dated if branch not in keep]
+
+
+def prune_branches(directory, remote, env, today):
+    refs = {}
+    for line in git(['ls-remote', '--heads', remote], directory, env).stdout.splitlines():
+        sha, ref = line.split()
+        refs[ref.removeprefix('refs/heads/')] = sha
+    for branch in retention_candidates(refs, today):
+        ref = 'refs/heads/' + branch
+        sha = refs[branch]
+        # Refuse to prune a branch containing application history or other files.
+        git(['fetch', '--no-tags', remote, ref], directory, env)
+        if git(['rev-parse', 'FETCH_HEAD'], directory).stdout.strip() != sha:
+            raise ValueError('Retention branch changed; refusing deletion')
+        if git(['ls-tree', '-r', '--name-only', sha], directory).stdout.splitlines() != [f'database-{branch[7:]}.sql']:
+            raise ValueError('Retention branch is not a dump-only branch')
+        if git(['rev-list', '--parents', '-n', '1', sha], directory).stdout.split() != [sha]:
+            raise ValueError('Retention branch has unexpected history')
+        git(['push', '--porcelain', '--force-with-lease=' + ref + ':' + sha, remote, ':' + ref], directory, env)
+        check = git(['ls-remote', '--exit-code', '--heads', remote, ref], directory, env, check=False)
+        if check.returncode != 2:
+            raise ValueError('Retention deletion verification failed')
+        print('Retention removed ' + branch)

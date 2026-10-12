@@ -37,7 +37,7 @@ class GeoTests(unittest.TestCase):
         with patch.object(core,'catalog',return_value={'version':'synthetic','entries':[entry],'offers':[offer]}):
             result=core.search(raw);self.assertEqual(result['count'],1)
             self.assertIn('straight-line',result['location_notice']);self.assertEqual(result['resolved_location']['state'],'OH')
-            for location in ['Dayton','00000','Cincinatti, OH']:
+            for location in ['00000','Cincinatti, OH']:
                 self.assertEqual(core.search(dict(raw,location=location))['count'],0)
             self.assertEqual(core.search(dict(raw,location='Dayton, OH'))['count'],1)
             self.assertEqual(core.agent('Find knee MRI near 45402 without contrast',{})['count'],1)
@@ -45,5 +45,27 @@ class GeoTests(unittest.TestCase):
             self.assertEqual(core.search(dict(raw,location='Lexington, KY'))['count'],1)
             self.assertEqual(core.agent('knee MRI near Lexington, KY',{})['count'],1)
 
+class CityRankingTests(unittest.TestCase):
+    def test_dayton_and_columbus_ohio_rank_first(self):
+        for city in ['Dayton','Columbus']:
+            origin=geo.lookup(city+', OH')[0]
+            entry={'name':'Ohio facility','states':'OH','area':city,'location_type':'site','locations':[dict(origin,precision='city')]}
+            with patch.object(core,'catalog',return_value={'version':'test','entries':[entry],'offers':[]}):
+                result=core.search(dict(mod='MRI',body='brain',location=city,radius=25))
+            self.assertEqual(result['resolved_location']['state'],'OH')
+            self.assertFalse(result['location_suggestions'])
+
+    def test_multiple_nearby_candidates_still_require_choice(self):
+        entries=[]
+        for place in ['Dayton, OH','Dayton, KY']:
+            origin=geo.lookup(place)[0]
+            # Ohio facility sits at city center, Kentucky is slightly farther away.
+            entries.append({'name':place,'location_type':'site','locations':[dict(origin,latitude=origin['latitude']+(0.05 if origin['state']=='KY' else 0),precision='city')]})
+        with patch.object(core,'catalog',return_value={'version':'test','entries':entries,'offers':[]}):
+            result=core.search(dict(mod='MRI',body='brain',location='Dayton',radius=25))
+        self.assertIsNone(result['resolved_location'])
+        self.assertEqual(result['location_suggestions'][0],'Dayton, OH')
+
 if __name__=='__main__':unittest.main()
+
 

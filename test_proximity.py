@@ -48,17 +48,23 @@ class SearchTests(unittest.TestCase):
         self.assertIn('Above',r['offers'][0]['budget_status'])
         self.assertIn('Different price type: fixed',r['offers'][0]['filter_differences'])
 
-    def test_reviewed_alternative_discloses_exam_and_contrast(self):
-        a=self.offer('a');a['exam_terms']=['brain'];a['mod']='CT'
-        r=self.run_search([a],type='range',contrast='with')
-        o=r['offers'][0]
-        self.assertTrue(o['reviewed_alternative'])
-        self.assertEqual(o['mod'],'CT')
-        self.assertEqual(o['contrast'],'without')
-        self.assertEqual(r['search']['contrast'],'with')
-        self.assertIn('Different exam: brain',o['filter_differences'])
-        self.assertIn('Different contrast: without',o['filter_differences'])
-        self.assertIn('not a substitute',o['match_status'])
+    def test_mismatched_procedure_never_becomes_an_alternative(self):
+        for changes in [dict(mod='CT'), dict(exam_terms=['brain']), dict(contrast='without'), dict(contrast='unknown')]:
+            a=self.offer('a');a.update(contrast='with');a.update(changes)
+            r=self.run_search([a],type='range',contrast='with')
+            self.assertFalse(r['offers'])
+            self.assertTrue(r['no_exam_price'])
+            self.assertIn('No listed facility publishes a price for this exam',r['location_notice'])
+
+    def test_brain_with_contrast_never_returns_ct_or_without(self):
+        candidates=[self.offer('ct'),self.offer('without'),self.offer('unknown')]
+        for offer in candidates:offer['exam_terms']=['brain']
+        candidates[0].update(mod='CT',contrast='with')
+        candidates[2]['contrast']='unknown'
+        with patch.object(core,'catalog',return_value=dict(version='test',offers=candidates,entries=[o['entry'] for o in candidates])):
+            r=core.search(dict(mod='MRI',body='brain',contrast='with',location='Dayton, OH'))
+        self.assertFalse(r['offers'])
+        self.assertTrue(r['nearby_unpriced'])
 
     def test_alternative_prefers_service_then_nearest(self):
         a=self.offer('ct');a['mod']='CT'
@@ -68,7 +74,7 @@ class SearchTests(unittest.TestCase):
         self.assertIn('Outside selected radius',r['offers'][0]['filter_differences'])
 
     def test_alternative_across_locations_and_chat(self):
-        a=self.offer('ct');a['mod']='CT'
+        a=self.offer('mri')
         data=dict(version='test',offers=[a],entries=[a['entry']])
         with patch.object(core,'catalog',return_value=data):
             for location in ['Lexington, KY','Boise, ID','45402','Kettering, OH']:
@@ -76,8 +82,8 @@ class SearchTests(unittest.TestCase):
                 self.assertEqual(r['count'],1)
                 self.assertIn('distance_miles',r['offers'][0])
             r=core.agent('knee MRI near Boise, ID',{})
-            self.assertTrue(r['offers'][0]['reviewed_alternative'])
-            self.assertIn('not a substitute',r['reply'])
+            self.assertEqual(r['offers'][0]['mod'],'MRI')
+            self.assertTrue(r['fallback'])
 
     def test_baltimore_choice_then_nationwide_nearest(self):
         a=self.offer('dayton-only')
@@ -107,4 +113,5 @@ class SearchTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.run_search([],radius=5)
 
 if __name__=='__main__':unittest.main()
+
 

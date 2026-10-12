@@ -27,7 +27,7 @@ class BoiseSearchRegression(unittest.TestCase):
             o=json.loads(row['payload']);o.update(entry=entries[row['entry_key']],version=NEW)
             offers.append(o)
         with patch.object(core,'catalog',return_value=dict(version=NEW,entries=list(entries.values()),offers=offers)):
-            r=core.search(dict(mod='MRI',body='knee',contrast='both',location='Boise City, ID',radius=250,budget=2000))
+            r=core.search(dict(mod='MRI',body='knee',contrast='unknown',location='Boise City, ID',radius=250,budget=2000))
         self.assertTrue(r['offers'])
         self.assertLess(r['offers'][0]['distance_miles'],10)
         self.assertIn('Boise',r['offers'][0]['entry']['name'])

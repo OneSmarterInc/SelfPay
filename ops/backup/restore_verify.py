@@ -60,7 +60,12 @@ def restore(dump):
             actual = [str(value) for value in cur.fetchone()]
             if actual != expected:
                 raise ValueError('Restored catalog counts differ from export snapshot')
-    print('Restore verified: all six catalog fields match the export snapshot.')
+            cur.execute('SELECT (SELECT count(*) FROM public.sessions), '
+                        '(SELECT count(*) FROM public.login_limits), '
+                        '(SELECT count(*) FROM public.guest_usage)')
+            if tuple(cur.fetchone()) != (0, 0, 0):
+                raise ValueError('Transient tables must exist with no restored rows')
+    print('Restore verified: all six catalog fields match; transient tables exist and are empty.')
 
 
 if __name__ == '__main__':

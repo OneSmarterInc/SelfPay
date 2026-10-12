@@ -17,8 +17,28 @@ def backup_date(now=None):
 
 
 def git(args, cwd, env=None, check=True):
-    return subprocess.run(['git', *args], cwd=cwd, env=env, check=check,
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        return subprocess.run(['git', *args], cwd=cwd, env=env, check=check,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or '').lower()
+        categories = {
+            'write access to repository not granted': 'Token lacks repository write access',
+            'permission denied': 'Permission denied',
+            'authentication failed': 'Authentication failed',
+            'could not read username': 'Authentication unavailable',
+            'repository not found': 'Repository unavailable to token',
+            'protected branch': 'Branch protection rejected push',
+            'repository rule violations': 'Repository rules rejected push',
+            'dubious ownership': 'Git directory ownership check failed',
+            'unable to access': 'Remote access failed',
+            '403': 'HTTP 403',
+            'refusing to allow': 'Token permission restriction',
+        }
+        labels = [label for phrase, label in categories.items() if phrase in detail]
+        print('Git operation failed: ' + args[0] + '; ' +
+              (', '.join(labels) or 'Unclassified Git error'), flush=True)
+        raise
 
 
 def create_commit(directory, SQL, day):

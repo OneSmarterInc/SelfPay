@@ -1,0 +1,61 @@
+name: Verify SQL backup restore
+on:
+  workflow_dispatch:
+    inputs:
+      backup_date:
+        description: 'Exact backup date YYYY-MM-DD'
+        required: true
+        default: '2026-10-12'
+      backup_commit:
+        description: 'Reviewed full dump-only commit SHA'
+        required: true
+        default: '892343ff15544204a5fab6fecb7369f255af35f9'
+      restore_branch_id:
+        description: 'Verified disposable Neon branch ID (never live)'
+        required: true
+        default: 'br-lively-recipe-b7948zn5'
+      restore_host:
+        description: 'Verified disposable direct Neon hostname'
+        required: true
+        default: 'ep-rough-sky-b78gwt56.c-13.us-east-1.aws.neon.tech'
+permissions:
+  contents: read
+concurrency:
+  group: selfpay-isolated-restore
+  cancel-in-progress: false
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: database-backups
+    container: postgres:18-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install restore tools
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends python3 python3-psycopg2 git ca-certificates tzdata
+      - name: Check restore prerequisites
+        env:
+          RESTORE_DATABASE_URL: ${{ secrets.RESTORE_DATABASE_URL }}
+          RESTORE_BRANCH_ID: ${{ inputs.restore_branch_id }}
+          RESTORE_EXPECTED_HOST: ${{ inputs.restore_host }}
+        run: |
+          test -n "$RESTORE_DATABASE_URL" && test -n "$RESTORE_BRANCH_ID" && test -n "$RESTORE_EXPECTED_HOST"
+      - name: Download verified immutable backup
+        env:
+          BACKUP_REPO_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+          RESTORE_BACKUP_DATE: ${{ inputs.backup_date }}
+          RESTORE_BACKUP_COMMIT: ${{ inputs.backup_commit }}
+        run: python3 ops/backup/restore_download.py /tmp/selfpay-restore.sql
+      - name: Restore only into verified empty disposable target
+        env:
+          RESTORE_DATABASE_URL: ${{ secrets.RESTORE_DATABASE_URL }}
+          RESTORE_BRANCH_ID: ${{ inputs.restore_branch_id }}
+          RESTORE_EXPECTED_HOST: ${{ inputs.restore_host }}
+        run: python3 ops/backup/restore_verify.py /tmp/selfpay-restore.sql
+      - name: Remove temporary dump
+        if: always()
+        run: rm -f /tmp/selfpay-restore.sql

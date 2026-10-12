@@ -4,7 +4,8 @@ Before any developer/administrator SQL operation against the live Neon database,
 
 - Require a change record approved by Vikram before live SQL, including read-only operational queries.
 - Commit exact SQL files first and reference their full commit SHA in the record.
-- Test each live change on a separate Neon branch copy and record the results before live approval/execution.
+- Test each live change on a separate Neon branch copy and record the results before live approval/execution, unless Vikram explicitly waives the copy test in writing as described in POLICY.md.
+- Create and verify a backup branch before every live write. No backup, no change.
 - Never treat a general request to fix an issue as approval of an unreviewed live SQL file.
 - Preserve directory-data as a separate data branch. Keep Directory sync paused unless an approved activation record authorizes it.
 - Do not claim approval, branch testing or live verification without evidence.

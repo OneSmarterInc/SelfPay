@@ -16,19 +16,23 @@
   six catalog values and three empty transient tables are checked after restore.
 - Separate Neon branch br-lively-recipe-b7948zn5 and new database
   restore_20261012 created. It expires October 13 at 14:25:39Z. See
-  2026-10-12-dump-restore.md. RESTORE_DATABASE_URL must be saved securely before
-  execution; no successful SQL restore is claimed.
+  2026-10-12-dump-restore.md. The saved RESTORE_DATABASE_URL points to live;
+  the guard refused it before connection. Correct disposable credentials are
+  required. No successful SQL restore is claimed.
 - Local backup tests: 19 passed. This is not actual Neon restore evidence.
 
 ### Remaining external or owner-dependent work
 
-1. Save the verified disposable target credential and execute/record SQL restore.
+1. Correct RESTORE_DATABASE_URL to the prepared disposable endpoint. Run
+   38265344349 refused the current live endpoint before connecting. Then execute
+   and record SQL restore.
 2. Monthly restore/PITR automation needs fresh-target provisioning/credentials;
    it is not enabled. A manual workflow is not a completed recurring drill.
 3. Retain baseline until October 19 08:46:32Z, then review test branch dependencies
    before cleanup. No retained baseline was deleted early.
-4. Confirm the named developer's GitHub username and restrict destination access;
-   confirm PAT is fine-grained and scoped only to MySelfPay_Backup.
+4. Backup repository human access is verified owner-only (zero collaborators).
+   A developer invitation needs an identified username and approval. Confirm PAT
+   is fine-grained and scoped only to MySelfPay_Backup.
 5. Main protection is configured but GitHub reports it not enforced by the
    current private-repository plan. No paid upgrade authorized or purchased.
 6. Vercel deployment-list request still returns 403. Production deployer remains

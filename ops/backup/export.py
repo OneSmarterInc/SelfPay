@@ -21,13 +21,10 @@ def export():
         raise ValueError('Use the approved direct live host')
     if os.environ.get('BACKUP_DATA_CLASS') != 'synthetic':
         raise ValueError('Only synthetic-data exports are approved')
-    recipient = os.environ['BACKUP_AGE_RECIPIENT']
-    if not recipient.startswith('age1'):
-        raise ValueError('An age public recipient is required')
     day = backup_date()
     with tempfile.TemporaryDirectory(prefix='selfpay-backup-') as tmp:
         root = Path(tmp)
-        dump = root / 'database.dump'
+        dump = root / 'database.sql'
         conn = psycopg2.connect(dsn, connect_timeout=30)
         try:
             conn.set_session(readonly=True, isolation_level='REPEATABLE READ')
@@ -44,18 +41,13 @@ def export():
                     raise ValueError('Catalog verification returned no row')
                 env = dict(os.environ, PGDATABASE=dsn, PGOPTIONS='-c default_transaction_read_only=on')
                 # Never expose DSN in command arguments or subprocess error logs.
-                subprocess.run(['pg_dump', '--format=custom', '--no-owner', '--no-acl',
+                subprocess.run(['pg_dump', '--format=plain', '--no-owner', '--no-acl',
                                 '--snapshot=' + snapshot, '--file=' + str(dump)],
                                env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             conn.rollback()
         finally:
             conn.close()
-        subprocess.run(['pg_restore', '--list', str(dump)], check=True,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        encrypted = root / ('database-' + day + '.dump.age')
-        subprocess.run(['age', '-r', recipient, '-o', str(encrypted), str(dump)],
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        publish(encrypted, day)
+        publish(dump, day)
 
 
 

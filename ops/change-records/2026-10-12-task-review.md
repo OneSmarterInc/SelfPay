@@ -1,5 +1,48 @@
 # October 12 developer-task implementation and blockers
 
+## Current status — supersedes historical notes below
+
+- UI PR #18 merged into main at 1f42ac44fd0c9fa0a8b4dd1af1a4c62cbc31c98a after
+  passing checks. Concise 105-provider/50-state card replaces the FAQ and appears
+  below initial search and the welcome no-order button. No production deployment.
+- Backup uploaded and verified in private MySelfPay_Backup: backup-2026-10-12,
+  commit 892343ff15544204a5fab6fecb7369f255af35f9, exactly one SQL file and no
+  parent history. Run 38261101819 attempt 2 succeeded at 14:16:52Z.
+- Owner's explicit 19:34:50 Asia/Kolkata waiver authorized the one-day test-data
+  exception. See 2026-10-12-one-time-test-backup.md. Original failed guard
+  preflight remains recorded; daily scheduling stays disabled.
+- Safe upload diagnostics are included from the successful backup branch.
+- Manual restore workflow and immutable-source validation are prepared; all
+  six catalog values and three empty transient tables are checked after restore.
+- Separate Neon branch br-lively-recipe-b7948zn5 and new database
+  restore_20261012 created. It expires October 13 at 14:25:39Z. See
+  2026-10-12-dump-restore.md. RESTORE_DATABASE_URL must be saved securely before
+  execution; no successful SQL restore is claimed.
+- Local backup tests: 19 passed. This is not actual Neon restore evidence.
+
+### Remaining external or owner-dependent work
+
+1. Save the verified disposable target credential and execute/record SQL restore.
+2. Monthly restore/PITR automation needs fresh-target provisioning/credentials;
+   it is not enabled. A manual workflow is not a completed recurring drill.
+3. Retain baseline until October 19 08:46:32Z, then review test branch dependencies
+   before cleanup. No retained baseline was deleted early.
+4. Confirm the named developer's GitHub username and restrict destination access;
+   confirm PAT is fine-grained and scoped only to MySelfPay_Backup.
+5. Main protection is configured but GitHub reports it not enforced by the
+   current private-repository plan. No paid upgrade authorized or purchased.
+6. Vercel deployment-list request still returns 403. Production deployer remains
+   unknown; browser fallback needs owner authorization. Deployment remains paused.
+7. Publication actor, exact historical SQL and preceding backup remain unknown.
+   The publication retrospective is available for owner review; no identity is
+   inferred from the Git committer. The original reader-role creation process
+   also remains unverified, although export with the read-only role worked.
+8. Recurring exports require a compliant data-handling decision; the one-day
+   exception does not authorize tomorrow's export. No records were removed to
+   force the synthetic guard to pass.
+
+## Historical review (preserved; use current status above)
+
 Status: CODE MERGED; exports paused; operational verification and owner review pending.
 
 Owner requested implementation of MySelfPay-dev-tasks-2026-10-12.md and selected

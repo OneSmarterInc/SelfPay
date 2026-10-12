@@ -42,3 +42,13 @@ Stop before pg_dump if any member has a tenant other than `guest`, any conversat
 
 Exclude data (but preserve schema) for public.sessions, public.login_limits and public.guest_usage. Retain the newest 14 dated branches and the earliest available branch of each calendar month. Prune only validated parentless dump-only branches after a successful, verified upload; preserve other branches. Never overwrite an existing date branch. Restore a dump into an isolated Neon branch and test PITR monthly; record actual results, not just workflow configuration.
 
+
+## Recorded one-day test-data exception
+
+On 12 October 2026 at 19:34:50 Asia/Kolkata, Vikram explicitly waived the
+branch test and approved that day's owner-classified test-data export to
+MySelfPay_Backup. See 2026-10-12-one-time-test-backup.md for the exact quote,
+failed structural preflight, scope and execution evidence. The manual exception
+permits non-guest members and conversations only on 2026-10-12; the recent
+corrections check, private destination, read-only role and exclusions remain.
+This does not authorize recurring exceptions. BACKUPS_ENABLED remains false.

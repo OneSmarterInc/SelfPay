@@ -68,3 +68,24 @@ The earlier failed structural preflight remains valid historical evidence;
 no successful restore is claimed. Approved output: backup-2026-10-12 containing
 database-2026-10-12.sql in private OneSmarterInc/MySelfPay_Backup.
 Status: APPROVED FOR ONE-TIME EXECUTION; execution outcome pending.
+
+## Execution outcome — 2026-10-12 14:16:52Z
+
+Status: EXPORT AND UPLOAD VERIFIED; SQL restore pending credentials.
+This supersedes the earlier pending/no-upload status above, without changing
+the historical failed structural preflight.
+
+- Source run: https://github.com/OneSmarterInc/SelfPay/actions/runs/38261101819
+  (attempt 2), job 114853523461, code 21ba0f87b57abfaf6c27c07fd042ce3ab2d4d14a.
+- Snapshot/catalog checks passed at 14:16:49.7266389Z; export completed at
+  14:16:50.2105109Z; upload and retention verified at 14:16:52.4416135Z.
+- Private destination: OneSmarterInc/MySelfPay_Backup.
+- Branch: backup-2026-10-12.
+- Commit: 892343ff15544204a5fab6fecb7369f255af35f9; no parents.
+- Exactly one file: database-2026-10-12.sql, 1,168,881 bytes.
+- Data for sessions, login_limits and guest_usage is excluded; schemas retained.
+  Export does not include cluster roles/passwords or ownership/ACL restoration.
+- Earlier upload attempt failed with HTTP 403; owner updated token access and
+  the retry succeeded. Token's repository-only scope remains unverified.
+- Scheduled backups remain paused. No production deployment occurred.
+- Actual restore has not passed; a successful export is not restore evidence.

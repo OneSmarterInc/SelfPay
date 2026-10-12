@@ -54,3 +54,7 @@ The screenshot's exact filters (MRI, knee, without and with contrast, Boise City
 
 Production code was not deployed or merged. The main production URL still showed the older city/state-only interface; review the Preview URL above for the new distance behavior and empty-results explanation. The database coordinate update is live and shared by connected environments.
 
+
+## Owner confirmation supplied 12 October 2026
+
+The user-provided MySelfPay-backup-tasks(2).md states: "Vikram confirmed the approvals and the copy-test waiver on Oct 9 at 11:09 am ET." Recorded as supplied owner confirmation (2026-10-09 15:09 UTC). This addendum does not claim a branch-copy test occurred or alter the original execution evidence. Future live writes still require a newly created and verified backup under POLICY.md.

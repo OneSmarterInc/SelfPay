@@ -1,0 +1,34 @@
+name: Daily SQL database branch
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: selfpay-database-backup
+  cancel-in-progress: false
+jobs:
+  export:
+    if: vars.BACKUPS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    container: postgres:18-bookworm
+    timeout-minutes: 30
+    environment: database-backups
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install backup tools
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends python3 python3-psycopg2 git ca-certificates tzdata
+      - name: Verify dump-only branch construction
+        run: python3 ops/backup/test_git_backup.py
+      - name: Export SQL and create dated branch
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_EXPECTED_HOST: ${{ vars.BACKUP_EXPECTED_HOST }}
+          BACKUP_DATA_CLASS: ${{ vars.BACKUP_DATA_CLASS }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 ops/backup/export.py

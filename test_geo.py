@@ -8,6 +8,14 @@ class GeoTests(unittest.TestCase):
         self.assertGreater(len(geo.lookup('Dayton')),1)
         r=geo.lookup('Dayton, OH');self.assertEqual(len(r),1);self.assertEqual(r[0]['state'],'OH')
         self.assertEqual(geo.lookup('dayton oh'),r)
+    def test_lexington_common_name(self):
+        r=geo.lookup('Lexington, KY')
+        self.assertEqual(len(r),1)
+        self.assertEqual(r[0]['match'],'exact')
+        self.assertEqual(r[0]['state'],'KY')
+        self.assertEqual(r[0]['latitude'],38.040678)
+        self.assertGreater(len(geo.lookup('Lexington')),1)
+
     def test_zip_and_leading_zero(self):
         self.assertEqual(geo.lookup('45402')[0]['state'],'OH')
         self.assertEqual(geo.lookup('00601')[0]['zip'],'00601')
@@ -34,5 +42,8 @@ class GeoTests(unittest.TestCase):
             self.assertEqual(core.search(dict(raw,location='Dayton, OH'))['count'],1)
             self.assertEqual(core.agent('Find knee MRI near 45402 without contrast',{})['count'],1)
             self.assertEqual(core.search(dict(raw,location='Dayton, KY'))['count'],1)
+            self.assertEqual(core.search(dict(raw,location='Lexington, KY'))['count'],1)
+            self.assertEqual(core.agent('knee MRI near Lexington, KY',{})['count'],1)
 
 if __name__=='__main__':unittest.main()
+

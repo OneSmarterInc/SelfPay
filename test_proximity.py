@@ -34,6 +34,71 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(len(offer_locations(a)),1)
         self.assertAlmostEqual(miles(self.loc(),self.loc()),0)
         self.assertAlmostEqual(miles(dict(latitude=0,longitude=0),dict(latitude=1,longitude=0)),69.09,places=1)
+    def test_quote_fallback_outside_radius(self):
+        entries=[self.entry(str(i)) for i in range(4)]
+        for i,e in enumerate(entries):e['locations']=[self.loc(42+i)]
+        r=self.run_search([],entries)
+        self.assertEqual([e['name'] for e in r['nearby_unpriced']],['0','1','2'])
+        self.assertIn('outside your radius',r['location_notice'])
+
+    def test_price_filter_fallback_preserves_search(self):
+        r=self.run_search([self.offer('a')],type='range',budget=100)
+        self.assertEqual(r['offers'][0]['id'],'a')
+        self.assertEqual(r['search']['type'],'range')
+        self.assertIn('Above',r['offers'][0]['budget_status'])
+        self.assertIn('Different price type: fixed',r['offers'][0]['filter_differences'])
+
+    def test_reviewed_alternative_discloses_exam_and_contrast(self):
+        a=self.offer('a');a['exam_terms']=['brain'];a['mod']='CT'
+        r=self.run_search([a],type='range',contrast='with')
+        o=r['offers'][0]
+        self.assertTrue(o['reviewed_alternative'])
+        self.assertEqual(o['mod'],'CT')
+        self.assertEqual(o['contrast'],'without')
+        self.assertEqual(r['search']['contrast'],'with')
+        self.assertIn('Different exam: brain',o['filter_differences'])
+        self.assertIn('Different contrast: without',o['filter_differences'])
+        self.assertIn('not a substitute',o['match_status'])
+
+    def test_alternative_prefers_service_then_nearest(self):
+        a=self.offer('ct');a['mod']='CT'
+        b=self.offer('mri',42);c=self.offer('far',44)
+        r=self.run_search([c,a,b],type='range')
+        self.assertEqual(r['offers'][0]['id'],'mri')
+        self.assertIn('Outside selected radius',r['offers'][0]['filter_differences'])
+
+    def test_alternative_across_locations_and_chat(self):
+        a=self.offer('ct');a['mod']='CT'
+        data=dict(version='test',offers=[a],entries=[a['entry']])
+        with patch.object(core,'catalog',return_value=data):
+            for location in ['Lexington, KY','Boise, ID','45402','Kettering, OH']:
+                r=core.search(dict(mod='MRI',body='knee',location=location))
+                self.assertEqual(r['count'],1)
+                self.assertIn('distance_miles',r['offers'][0])
+            r=core.agent('knee MRI near Boise, ID',{})
+            self.assertTrue(r['offers'][0]['reviewed_alternative'])
+            self.assertIn('not a substitute',r['reply'])
+
+    def test_baltimore_choice_then_nationwide_nearest(self):
+        a=self.offer('dayton-only')
+        with patch.object(core,'catalog',return_value=dict(version='test',offers=[a],entries=[a['entry']])):
+            raw=dict(mod='MRI',body='knee',location='Baltimore',radius=25)
+            r=core.search(raw)
+            self.assertEqual(set(r['location_suggestions']),{'Baltimore, MD','Baltimore, OH'})
+            self.assertFalse(r['offers'])
+            for city in r['location_suggestions']:
+                found=core.search(dict(raw,location=city))
+                self.assertEqual(found['offers'][0]['id'],'dayton-only')
+                self.assertGreater(found['offers'][0]['distance_miles'],25)
+                self.assertTrue(found['fallback'])
+
+    def test_agent_uses_quote_fallback(self):
+        e=self.entry('far');e['locations']=[self.loc(45)]
+        with patch.object(core,'catalog',return_value=dict(version='test',offers=[],entries=[e])):
+            r=core.agent('knee MRI near Kettering, OH',{})
+        self.assertEqual(r['nearby_unpriced'][0]['name'],'far')
+        self.assertIn('outside your radius',r['reply'])
+
     def test_agent_and_radius_validation(self):
         a=self.offer('a')
         with patch.object(core,'catalog',return_value=dict(version='test',offers=[a],entries=[a['entry']])):
@@ -42,3 +107,4 @@ class SearchTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.run_search([],radius=5)
 
 if __name__=='__main__':unittest.main()
+

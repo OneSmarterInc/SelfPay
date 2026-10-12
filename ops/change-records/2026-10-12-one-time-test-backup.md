@@ -1,51 +1,53 @@
-# October 12 one-time test-data backup
+# October 12 backup preflight on isolated Neon branch
 
-Status: PREPARED — live execution pending required Neon copy test or written waiver.
+Status: BLOCKED — synthetic-data precondition failed; no dump or restore executed.
 
-## Owner request
+## Owner instruction
 
-On 2026-10-12 (Asia/Kolkata), the owner corrected the earlier real-user statement:
-"add todays data in md file the user is not real users", then requested:
-"so do change and sva ethe todays backup".
+On 2026-10-12 at 18:49 Asia/Kolkata, the owner stated:
+"I do not waive the Neon branch test. Please perform the required test on a separate Neon branch first, verify the backup and restore process, and ensure the synthetic-data check passes. Do not upload anything to MySelfPay_Backup until the required checks are complete and I approve proceeding."
 
-This authorizes preparing a one-time backup of the owner-described test dataset
-into private OneSmarterInc/MySelfPay_Backup. Classification is owner-provided,
-not an independent review of every record. No real-data approval is inferred.
+No waiver is recorded. The proposed date-limited exception has been removed
+from this PR. The original guard and workflow remain unchanged.
 
-## Concrete change
+## Executed test
 
-Manual workflow input approved_test_backup_2026_10_12 enables a one-day exception
-for non-guest accounts and conversations only on 2026-10-12 Asia/Kolkata.
-The recent-correction stop condition still applies. Default and scheduled runs
-retain the complete original guard. BACKUPS_ENABLED remains false.
+At approximately 18:50 Asia/Kolkata (13:20 UTC), the assistant executed the exact
+committed ops/sql/backup-synthetic-check.sql from commit
+9ff7de313afe5641dc4ed54da021abe9fcbab893 using Neon's SQL editor.
 
-Destination: private OneSmarterInc/MySelfPay_Backup, branch backup-2026-10-12,
-one file database-2026-10-12.sql. Privacy is checked before export and upload.
-Dedicated read-only role and TLS remain required. Session, login-limit and
-guest-usage data remain excluded; their schemas are retained. Existing date
-branches are never overwritten. No source database writes are performed.
+Verified UI target:
+- Project: myselfpay-review / late-grass-13270808
+- Separate existing branch: restore-test-20261012
+- Branch ID: br-weathered-field-b7ykycqf
+- Compute ID displayed: ep-twilight-grass-b7rwzqpf
+- Database: neondb
+- This is not live branch br-rapid-mouse-b7clh18t.
+- The existing test branch comes from the retained Oct 12 baseline and earlier
+  PITR drill; this test does not establish the latest live state.
 
-## SQL and validation
+Result: one row, 123 ms, in SQL column order:
+1. Non-guest members exist: true.
+2. Conversations exist: true.
+3. Corrections at/after 2026-10-13 00:00 Asia/Kolkata exist: false.
 
-No SQL is changed. Existing SQL files at commit
-9ff7de313afe5641dc4ed54da021abe9fcbab893:
-- ops/sql/backup-synthetic-check.sql
-- ops/sql/backup-catalog-counts.sql
+The SQL executed successfully, but the synthetic-data acceptance condition FAILED.
+The owner describes the users as test users; that classification does not make
+the original structural checks pass. No private record contents were displayed.
 
-The export also retains its existing read-only role privilege check and
-pg_export_snapshot() call. The guard, catalog counts and dump share one snapshot.
-Local backup suite: 17 tests passed, including expiration, default denial and
-recent-correction denial with the exception selected.
+## Consequences and remaining work
 
-A separate Neon branch test of these operational checks is not yet recorded.
-Under AGENTS.md and POLICY.md, the owner must explicitly waive that test in
-writing if execution is to proceed without it. The request to save today's
-backup is not recorded as such a waiver. No live export or restore success is
-claimed. The earlier baseline branch remains retained.
+The original guard requires stopping before pg_dump on either of the first two
+true results. No dump, SQL restore or upload was attempted during this test.
+No database records were changed. No backup was uploaded to MySelfPay_Backup.
+BACKUPS_ENABLED remains false. No production deployment or live SQL was run.
 
-## Risk and recovery
+To continue under the existing rule, an approved data-handling plan must resolve
+the non-guest and conversation records. Do not delete records merely to obtain
+a passing result, and do not claim that a sanitized test fixture validates a
+full-data export of the current dataset.
 
-A mistaken test-data classification could place real data in the plain SQL file;
-repository readers can read the dump. The exception expires after today.
-On validation/export/publish failure, stop and report failure. The source is
-read-only, so no source rollback is required. Do not overwrite an existing backup.
+After the precondition is legitimately satisfied, remaining tests include a
+same-snapshot export, restore into an empty isolated Neon target, comparison of
+the six catalog fields and transient-data exclusions, and an evidence review.
+The owner must explicitly approve proceeding before any destination upload.

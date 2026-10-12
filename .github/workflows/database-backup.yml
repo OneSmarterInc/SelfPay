@@ -3,11 +3,6 @@ on:
   schedule:
     - cron: '30 2 * * *'
   workflow_dispatch:
-    inputs:
-      approved_test_backup_2026_10_12:
-        description: 'One-time Oct 12 backup of owner-confirmed test users'
-        type: boolean
-        default: false
 permissions:
   contents: read
 concurrency:
@@ -15,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   export:
-    if: vars.BACKUPS_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && inputs.approved_test_backup_2026_10_12)
+    if: vars.BACKUPS_ENABLED == 'true'
     runs-on: ubuntu-latest
     container: postgres:18-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c
     timeout-minutes: 30
@@ -36,6 +31,5 @@ jobs:
           BACKUP_EXPECTED_HOST: ${{ vars.BACKUP_EXPECTED_HOST }}
           BACKUP_DATA_CLASS: ${{ vars.BACKUP_DATA_CLASS }}
           BACKUP_REPO_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
-          BACKUP_APPROVED_TEST_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.approved_test_backup_2026_10_12 && '2026-10-12' || '' }}
         run: python3 ops/backup/export.py
 

@@ -1,11 +1,33 @@
 # October 12 developer-task implementation and blockers
 
-Status: PREPARED IN PR — NOT DEPLOYED; owner review and access actions pending.
+Status: CODE MERGED; exports paused; operational verification and owner review pending.
 
 Owner requested implementation of MySelfPay-dev-tasks-2026-10-12.md and selected
 `OneSmarterInc/MySelfPay_Backup` as the new backup destination. This supersedes
 the prior same-repository/full-table export preference, but does not waive the
 new document's live-write or production-deployment approval gates.
+
+## Owner correction and status update — 2026-10-12 (Asia/Kolkata)
+
+The owner corrected the earlier statement that the users were real: the users
+are not real users. Record this as an owner-provided classification of the user
+records as test/demo data, not as an independently verified database finding.
+This correction supersedes the earlier real-user statement. The conversation
+contents have not been independently classified or verified.
+
+The earlier saved dump contains 4 non-guest members and 6 conversations.
+These structural conditions still trigger the committed synthetic-data guard,
+regardless of the owner-provided classification. This documentation update does
+not change the guard, alter database records, authorize a bypass, or enable
+exports. BACKUPS_ENABLED remains false; no new backup or SQL restore has been
+completed in MySelfPay_Backup.
+
+Other verified updates today, superseding the earlier pending status below:
+- PR #16 was merged into main at commit
+  `9ff7de313afe5641dc4ed54da021abe9fcbab893`.
+- MySelfPay_Backup was subsequently confirmed private through the GitHub API.
+- BACKUP_REPO_TOKEN is present in SelfPay's database-backups environment;
+  its permissions and runtime use have not yet been tested.
 
 ## Prepared changes
 

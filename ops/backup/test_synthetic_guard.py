@@ -31,3 +31,18 @@ class SyntheticGuardTests(unittest.TestCase):
         require_synthetic(self.db.cursor())
         self.db.execute('INSERT INTO public.corrections VALUES (1791829800)')
         with self.assertRaises(NonSyntheticData): require_synthetic(self.db.cursor())
+
+    def test_owner_test_exception_is_date_limited(self):
+        self.db.execute("INSERT INTO public.members VALUES ('member')")
+        self.db.execute("INSERT INTO public.conversations VALUES ('demo')")
+        require_synthetic(self.db.cursor(), approved_test_date='2026-10-12', today='2026-10-12')
+        for approval, today in [('', '2026-10-12'), ('2026-10-12', '2026-10-13'),
+                                ('2026-10-13', '2026-10-13'), ('2026-10-12', '')]:
+            with self.subTest(approval=approval, today=today):
+                with self.assertRaises(NonSyntheticData):
+                    require_synthetic(self.db.cursor(), approved_test_date=approval, today=today)
+
+    def test_owner_exception_still_stops_recent_corrections(self):
+        self.db.execute('INSERT INTO public.corrections VALUES (1791829800)')
+        with self.assertRaises(NonSyntheticData):
+            require_synthetic(self.db.cursor(), approved_test_date='2026-10-12', today='2026-10-12')

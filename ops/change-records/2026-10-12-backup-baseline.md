@@ -1,6 +1,6 @@
 # Backup baseline — 12 October 2026
 
-Status: BACKUP CREATED; live comparison and export/restore setup pending.
+Status: BACKUP VERIFIED AGAINST LIVE; export/restore setup pending.
 
 ## Authorization and scope
 User requested implementation of the attached MySelfPay-backup-tasks(1).md on 12 October 2026, stating Neon access was connected. Earlier explicit request to create a backup branch remains applicable. Scope: copy the existing live database in the same Neon project and verify catalog counts; do not modify live catalog data.
@@ -25,7 +25,7 @@ Replacement: ops/sql/backup-catalog-counts.sql, committed at d23036e59230389d895
 - location records: 132
 - programs: 7
 
-The same exact query is the live comparison step within the requested backup verification. No live write is authorized by this record.
+The same exact committed query completed successfully on live main on 12 October 2026. All six fields matched the backup: active batch 4974b4d5-143c-4bf2-a198-28d4e366ecd9, 105 entries, 57 offers, 98 located entries, 132 location records, 7 programs. The transaction ended with ROLLBACK. No live write is authorized or performed by this record.
 
 ## Plan observed
 Free plan; PostgreSQL 18; six-hour history retention, directly displayed in Neon. This backup branch is a retained snapshot, distinct from the rolling history window. Recovery more than six hours back using PITR requires a longer configured history window/eligible plan; no upgrade purchased.

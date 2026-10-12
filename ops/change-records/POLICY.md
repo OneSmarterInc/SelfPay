@@ -30,3 +30,10 @@ Fresh live status() and pg_get_functiondef() queries in records 4.1 and 4.3 must
 This is a repository operating policy, not a database permission barrier. A database owner may technically execute SQL outside it. Required-reviewer settings, identity mapping for Vikram, protected workflows and restricted credentials need separate configuration and verification before claiming technical enforcement.
 
 Directory sync was manually disabled on 9 October 2026, with its enable variable observed unset. Keep it paused until an explicitly approved activation record covers the exact code/data, branch test and live operation. Do not delete roles, secrets or catalog data to implement this policy.
+
+## Backup requirement (12 October 2026 implementation)
+Vikram may waive the Neon copy test in writing. The waiver is quoted in the change record. A backup branch (section A of MySelfPay-backup-tasks.md) is still required. This is the only exception to the copy-test requirement above; it does not waive SQL review, change records or live approval.
+
+Before every live write, create a data-and-schema branch from the verified live branch, named backup-YYYYMMDD-HHMM-<change> (UTC). Verify the backup catalog against live, record branch ID, parent, UTC creation time, exact query commit and counts. Use ops/sql/backup-catalog-counts.sql for independent branches: status() is live-target guarded. If creation or verification fails, stop; do not run the live write.
+
+Retain backups for seven days; record any deletion. Never overwrite a backup with restore experiments. Daily exports must use a dedicated read-only role, encryption and private storage outside Neon with fourteen-day retention. Before real member data, Vikram must approve the destination. Restore a dump into an isolated branch and test PITR monthly; record actual results, not just workflow configuration.

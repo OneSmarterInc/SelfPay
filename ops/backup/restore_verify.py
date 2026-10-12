@@ -17,8 +17,12 @@ def validate_target(config, expected_branch, expected_host):
     if not expected_branch.startswith('br-') or expected_branch == LIVE_BRANCH:
         raise ValueError('A separate disposable Neon branch is required')
     host = config.get('host', '')
-    if host != expected_host or host == LIVE_HOST or '-pooler.' in host or not host.endswith('.neon.tech'):
-        raise ValueError('Use the verified disposable direct Neon endpoint')
+    if host == LIVE_HOST or host == LIVE_HOST.replace('.c-13.', '-pooler.c-13.'):
+        raise ValueError('Live database endpoint refused')
+    if '-pooler.' in host:
+        raise ValueError('Pooled endpoint refused; disable connection pooling')
+    if host != expected_host or not host.endswith('.neon.tech'):
+        raise ValueError('Saved endpoint does not match the selected disposable branch')
     if config.get('sslmode') not in ('require', 'verify-ca', 'verify-full'):
         raise ValueError('TLS is required')
 
@@ -79,7 +83,18 @@ def restore(dump):
 if __name__ == '__main__':
     try:
         restore(sys.argv[1])
-    except Exception:
+    except Exception as error:
+        safe_reasons = {
+            'A separate disposable Neon branch is required',
+            'Live database endpoint refused',
+            'Pooled endpoint refused; disable connection pooling',
+            'Saved endpoint does not match the selected disposable branch',
+            'TLS is required',
+            'Restore branch identity mismatch',
+            'Restore target must be empty; no existing data will be deleted',
+        }
+        if type(error) is ValueError and str(error) in safe_reasons:
+            print('Restore configuration: ' + str(error), file=sys.stderr)
         # psql errors can contain row values and credentials. Never echo them.
         print('Restore failed. No success recorded; inspect the disposable branch privately.', file=sys.stderr)
         sys.exit(1)

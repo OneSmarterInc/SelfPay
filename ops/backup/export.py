@@ -59,6 +59,27 @@ def export():
 if __name__ == '__main__':
     try:
         export()
+    except subprocess.CalledProcessError as exc:
+        # Classify stderr without printing credentials, SQL, or data.
+        detail = exc.stderr or b''
+        if isinstance(detail, bytes):
+            detail = detail.decode('utf-8', errors='replace')
+        categories = {
+            'permission denied': 'Database permission denied',
+            'row-level security': 'Row-level security prevents a complete dump',
+            'server version mismatch': 'PostgreSQL client/server version mismatch',
+            'invalid snapshot': 'Snapshot could not be imported',
+            'invalid connection option': 'Unsupported connection option',
+            'unrecognized configuration parameter': 'Unsupported server configuration option',
+            'password authentication failed': 'Database authentication failed',
+            'could not translate host name': 'Database hostname resolution failed',
+            'connection refused': 'Database connection refused',
+            'invalid sslmode': 'Invalid TLS configuration',
+        }
+        found = [label for key, label in categories.items() if key in detail.lower()]
+        print('Backup subprocess failed: ' + (', '.join(found) or 'Unclassified subprocess failure'), file=sys.stderr)
+        print('Subprocess executable: ' + Path(exc.cmd[0]).name, file=sys.stderr)
+        sys.exit(1)
     except ValueError as exc:
         # These fixed validation messages contain no connection values.
         print('Backup validation failed: ' + str(exc), file=sys.stderr)

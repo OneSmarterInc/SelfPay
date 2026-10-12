@@ -1,0 +1,37 @@
+name: Daily encrypted database backup
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: selfpay-database-backup
+  cancel-in-progress: false
+jobs:
+  export:
+    if: vars.BACKUPS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    container: postgres:18-bookworm
+    timeout-minutes: 30
+    environment: database-backups
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install backup tools
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends python3 python3-psycopg2 age
+          npm ci --prefix ops/backup --ignore-scripts --no-audit --no-fund
+      - name: Export, encrypt, verify private copy, retain 14 days
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_EXPECTED_HOST: ${{ vars.BACKUP_EXPECTED_HOST }}
+          BACKUP_DATA_CLASS: ${{ vars.BACKUP_DATA_CLASS }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: python3 ops/backup/export.py

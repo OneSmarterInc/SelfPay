@@ -78,6 +78,19 @@ if __name__ == '__main__':
         }
         found = [label for key, label in categories.items() if key in detail.lower()]
         print('Backup subprocess failed: ' + (', '.join(found) or 'Unclassified subprocess failure'), file=sys.stderr)
+        if Path(exc.cmd[0]).name == 'pg_dump':
+            import re
+            from psycopg2.extensions import parse_dsn
+            private_values = parse_dsn(os.environ['BACKUP_DATABASE_URL'])
+            safe = detail
+            for value in sorted(private_values.values(), key=len, reverse=True):
+                if value:
+                    safe = safe.replace(value, '[redacted]')
+            safe = re.sub(r'postgres(?:ql)?://\\S+', '[redacted connection]', safe)
+            safe = re.sub(r'npg_[A-Za-z0-9]+', '[redacted password]', safe)
+            # Error summary only: omit SQL/query/context and any data rows.
+            summaries = [line for line in safe.splitlines() if line.startswith('pg_dump: error:')]
+            print('Dump error summary: ' + ' | '.join(summaries)[:1500], file=sys.stderr)
         print('Subprocess executable: ' + Path(exc.cmd[0]).name, file=sys.stderr)
         sys.exit(1)
     except ValueError as exc:

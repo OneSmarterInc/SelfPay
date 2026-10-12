@@ -26,10 +26,13 @@ def validate_target(config, expected_branch, expected_host):
 def restore(dump):
     import psycopg2
     from psycopg2.extensions import parse_dsn
+    print('Restore stage: parse connection URL', flush=True)
     dsn = os.environ['RESTORE_DATABASE_URL']
     expected_branch = os.environ['RESTORE_BRANCH_ID']
     config = parse_dsn(dsn)
+    print('Restore stage: validate disposable endpoint and TLS', flush=True)
     validate_target(config, expected_branch, os.environ['RESTORE_EXPECTED_HOST'])
+    print('Restore stage: read snapshot manifest', flush=True)
     marker = '-- SelfPay catalog snapshot: '
     manifests = [line[len(marker):] for line in Path(dump).read_text().splitlines() if line.startswith(marker)]
     if len(manifests) != 1:
@@ -37,11 +40,14 @@ def restore(dump):
     expected = json.loads(manifests[0])
     if not isinstance(expected, list) or len(expected) != 6 or not all(isinstance(x, str) for x in expected):
         raise ValueError('Invalid snapshot count manifest')
+    print('Restore stage: connect to disposable target', flush=True)
     with psycopg2.connect(dsn, connect_timeout=30) as conn:
         with conn.cursor() as cur:
+            print('Restore stage: verify branch identity', flush=True)
             cur.execute("SELECT current_setting('neon.branch_id', true)")
             if cur.fetchone()[0] != expected_branch:
                 raise ValueError('Restore branch identity mismatch')
+            print('Restore stage: require empty database', flush=True)
             cur.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema')")
             if cur.fetchone()[0] != 0:
                 raise ValueError('Restore target must be empty; no existing data will be deleted')
@@ -50,8 +56,10 @@ def restore(dump):
                           'dbname':'PGDATABASE','sslmode':'PGSSLMODE','channel_binding':'PGCHANNELBINDING',
                           'sslrootcert':'PGSSLROOTCERT'}.items():
         if key in config: env[variable] = config[key]
+    print('Restore stage: transactional SQL restore', flush=True)
     subprocess.run(['psql', '-X', '--set=ON_ERROR_STOP=1', '--single-transaction', '--file='+str(dump)],
                    env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    print('Restore stage: compare catalog and transient tables', flush=True)
     with psycopg2.connect(dsn, connect_timeout=30) as conn:
         conn.set_session(readonly=True)
         with conn.cursor() as cur:

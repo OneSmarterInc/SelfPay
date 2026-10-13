@@ -33,7 +33,9 @@ jobs:
       - name: Backup safety and retention tests
         run: python -m unittest discover -s ops/backup -p 'test_*.py'
       - name: Client workflow tests
-        run: node test_ui.mjs
+        run: |
+          node test_ui.mjs
+          node test_pwa.mjs
 
       - name: Prepare disposable directory integration database
         run: |

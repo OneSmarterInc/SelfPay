@@ -26,7 +26,7 @@ class Handler(BaseHTTPRequestHandler):
     def respond(self,status,data,cookie=None,content_type='application/json',retry_after=None):
         body=json.dumps(data).encode() if content_type=='application/json' else data
         self.send_response(status)
-        self.send_header('Content-Type',content_type+'; charset=utf-8')
+        self.send_header('Content-Type',content_type+('' if content_type.startswith('image/') else '; charset=utf-8'))
         self.send_header('Content-Length',str(len(body)))
         self.send_header('Cache-Control','no-store')
         if retry_after is not None:self.send_header('Retry-After',str(retry_after))
@@ -74,10 +74,23 @@ class Handler(BaseHTTPRequestHandler):
         return all([self.login_allowed(key,LIMITS[kind]) for kind,key in checks])
     def route_selfpay_request(self,method):
         if not self.validate_origin():return self.respond(403,{'error':'Origin or host rejected'})
-        path=urlparse(self.path).path;db=self.database_path()
-        if method=='GET' and path in ('/','/app.js'):
-            name={'/':'index.html','/app.js':'app.js'}[path]
-            return self.respond(200,(core.ROOT/'static'/name).read_bytes(),content_type='text/html' if path=='/' else 'text/javascript')
+        path=urlparse(self.path).path
+        assets={
+            '/':('index.html','text/html'),
+            '/app.js':('app.js','text/javascript'),
+            '/pwa.js':('pwa.js','text/javascript'),
+            '/sw.js':('sw.js','text/javascript'),
+            '/manifest.webmanifest':('manifest.webmanifest','application/manifest+json'),
+            '/offline.html':('offline.html','text/html'),
+            '/icons/icon-192.png':('icons/icon-192.png','image/png'),
+            '/icons/icon-512.png':('icons/icon-512.png','image/png'),
+            '/icons/maskable-512.png':('icons/maskable-512.png','image/png'),
+            '/icons/apple-touch-icon.png':('icons/apple-touch-icon.png','image/png'),
+        }
+        if method=='GET' and path in assets:
+            name,mime=assets[path]
+            return self.respond(200,(core.ROOT/'static'/name).read_bytes(),content_type=mime)
+        db=self.database_path()
         if path in ('/api/register','/api/login','/api/password'):
             return self.respond(410,{'error':'Use Sign in as guest. Email and password sign-in is disabled.'})
         if path=='/api/guest' and method=='POST':

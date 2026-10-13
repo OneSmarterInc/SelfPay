@@ -16,7 +16,7 @@ final class UrlPolicy {
     static boolean isExternalAllowed(String value) {
         try {
             String scheme = new URI(value).getScheme();
-            return scheme != null && java.util.Set.of("https", "http", "tel", "mailto", "geo").contains(scheme.toLowerCase(Locale.ROOT));
+            return scheme != null && java.util.Arrays.asList("https", "http", "tel", "mailto", "geo").contains(scheme.toLowerCase(Locale.ROOT));
         } catch (Exception ignored) { return false; }
     }
 }

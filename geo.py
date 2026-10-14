@@ -18,12 +18,16 @@ def place_name(name):
 @lru_cache(maxsize=1)
 def _index():
     names, zips, states = {}, {}, {}
+    with (DATA / 'population.csv').open(encoding='utf-8', newline='') as stream:
+        populations = {(row['name'], row['state']): int(row['population'])
+                       for row in csv.DictReader(stream)}
     for kind, filename in [('state','states.csv'),('place','places.csv'),('zcta','zcta.csv')]:
         with (DATA/filename).open(encoding='utf-8',newline='') as f:
             for row in csv.DictReader(f):
                 name=place_name(row['name']) if kind=='place' else row['name']
                 label=f"{row['zip']}, {row['state']}" if kind=='zcta' else f"{name}, {row['state']}" if kind=='place' else row['name']
                 item=dict(name=name,state=row['state'],zip=row['zip'],latitude=float(row['latitude']),longitude=float(row['longitude']),kind=kind,label=label)
+                if kind == 'place': item['population'] = populations.get((row['name'], row['state']))
                 if kind=='state':
                     states[normalize(name)]=item;states[normalize(row['state'])]=item
                 elif kind=='zcta':zips.setdefault(row['zip'],[]).append(item)

@@ -1,0 +1,46 @@
+name: iOS build
+on:
+  push:
+    branches: ['feature/ios-app']
+    paths: ['ios/**', '.github/workflows/ios-build.yml']
+  pull_request:
+    paths: ['ios/**', '.github/workflows/ios-build.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  compile:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate Xcode project and icon
+        working-directory: ios
+        run: |
+          gem install xcodeproj -v 1.27.0 --user-install --no-document
+          ruby generate_project.rb
+          python3 generate_icon.py
+      - name: Check URL restrictions
+        working-directory: ios
+        run: |
+          swiftc MySelfPay/AppConfig.swift MySelfPay/URLPolicy.swift Tests/main.swift -o "$RUNNER_TEMP/url-policy-tests"
+          "$RUNNER_TEMP/url-policy-tests"
+      - name: Compile iPhone device app without signing
+        working-directory: ios
+        run: |
+          xcodebuild -project MySelfPay.xcodeproj -scheme MySelfPay -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device CODE_SIGNING_ALLOWED=NO build
+      - name: Compile simulator app
+        working-directory: ios
+        run: |
+          xcodebuild -project MySelfPay.xcodeproj -scheme MySelfPay -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=NO build
+      - name: Package simulator build
+        run: ditto -c -k --sequesterRsrc --keepParent ios/build/simulator/Build/Products/Debug-iphonesimulator/MySelfPay.app MySelfPay-simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MySelfPay-iOS-simulator-only
+          path: MySelfPay-simulator.zip
+          retention-days: 7
+          if-no-files-found: error

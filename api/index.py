@@ -45,7 +45,7 @@ class handler(server.Handler):
         return valid
     def respond(self,status,data,cookie=None,content_type='application/json',retry_after=None):
         if cookie:cookie+='; Secure'
-        if content_type!='application/json':
+        if content_type.startswith('text/'):
             text=data.decode('utf-8')
             text=text.replace('value="DemoOnly-2026!"','value=""')
             text=text.replace('Demo password: DemoOnly-2026!','Use the review password provided by your host.')
@@ -60,3 +60,4 @@ class handler(server.Handler):
         with core.connect(self.database_path()) as db:
             row=db.execute('INSERT INTO login_limits VALUES(?,?,1) ON CONFLICT(key,window_id) DO UPDATE SET attempts=login_limits.attempts+1 RETURNING attempts',(key,minute)).fetchone()
         return row['attempts']<=limit
+

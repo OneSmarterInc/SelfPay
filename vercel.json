@@ -3,7 +3,7 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 30,
-      "includeFiles": "{static/**,seed/**,core.py,geo.py,proximity.py,server.py,postgres_store.py}"
+      "includeFiles": "{static/**,seed/**,core.py,geo.py,proximity.py,server.py,postgres_store.py,app-config.json,tools/generate_app_config.py}"
     }
   },
   "github": {
@@ -15,6 +15,7 @@
       "directory-sync-*": false,
       "main": false,
       "backup-*": false,
+      "feature/cross-platform-pwa": false,
       "feature/android-apk": false
     }
   }

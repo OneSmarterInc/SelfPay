@@ -223,6 +223,11 @@ def search(raw,path=DB):
         candidates=sorted(candidates,key=lambda c:(distance(c),c['label']))
         nearby_candidates=[c for c in candidates if distance(c)<=s['radius']]
         if len(nearby_candidates)==1:candidates=nearby_candidates
+        elif len(nearby_candidates)>1:
+            # Rank covered same-name cities by Census population, not proximity
+            # to a facility. Keep the state choice explicit for ambiguous names.
+            nearby_candidates.sort(key=lambda c:(-(c.get('population') if c.get('population') is not None else -1),c['label']))
+            candidates=nearby_candidates+[c for c in candidates if c not in nearby_candidates]
     suggestions=list(dict.fromkeys(c['label'] for c in candidates))
     needs_choice=bool(candidates) and (len(suggestions)>1 or candidates[0]['match']!='exact')
     selected_state=None

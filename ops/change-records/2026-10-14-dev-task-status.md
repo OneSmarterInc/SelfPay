@@ -118,3 +118,47 @@ Targeted workspace session-log search found only historical SQL/change records,
 not the October 9 16:00–16:10 UTC execution session. The available remaining-publication
 record documents earlier batch 395c84be, not the later 4974b4d5 publication; it does
 not close the attribution gap. Original session evidence remains needed.
+
+## Successful isolated restore — October 14, 2026
+
+Neon connection verified project late-grass-13270808 (myselfpay-review), owned by
+the Vercel-managed organization, free_v3/free plan, branch limit 10, four existing
+branches before this test. No billing or production settings changed.
+Created restore-verify-20261014, br-hidden-mode-b77xkrb0, parent live
+br-rapid-mouse-b7clh18t, created 2026-10-14T12:38:52Z, parent LSN 0/2C7F7A8.
+Expiry: 2026-10-15T12:38:52Z. New database selfpay_restore_20261014 verified empty.
+Endpoint ep-wandering-paper-b7934uxi; min/max compute 0.25 CU, account defaults.
+Custom suspend setting was rejected without creating a branch; defaults succeeded.
+
+GitHub Actions budget freshly verified $0 with Usage blocked; 717.3/2000 included
+minutes and 0.3/0.5 GB storage used before run; $0 billable usage.
+Successful restore run: https://github.com/OneSmarterInc/SelfPay/actions/runs/38566059343
+Job 115858922173. Source main 305b247a029af6754afb20f76e2a102d7591b1d7.
+Restored exact approved GitHub backup commit 892343ff15544204a5fab6fecb7369f255af35f9.
+Workflow verified immutable dump, branch identity, direct TLS endpoint, empty target,
+transactional restore, catalog equality and empty excluded tables.
+Result: active batch 4974b4d5-143c-4bf2-a198-28d4e366ecd9; entries 105; offers 57;
+located entries 98; locations 132; programs 7. sessions/login_limits/guest_usage all 0.
+Independent read-only checks on restored database matched those results.
+
+RESTORE_DATABASE_URL was removed again after success. A browser diagnostic captured
+the temporary connection value while the save dialog was still closing. It was not
+repeated in prose or committed. Rotated neondb_owner password on the temporary
+branch only and removed the local credential file. Production credentials were
+not changed. Inherited credential reuse across branches has not been ruled out;
+owner review of production credential rotation is needed without silently changing
+the website's credentials. Temporary compute suspended; branch remains expiring.
+
+Read-only scope check on the branch's fresh neondb clone found 4 non-guest members,
+all 4 listed IDs present, 6 related conversations, 1 related preference, 1 related
+correction, 0 related sessions and 0 related guest_usage rows. This confirms scope
+at clone time, not synthetic classification and not later live state.
+No DELETE was run on either database. Cleanup SQL remains awaiting explicit owner
+approval and branch testing. Daily export activation remains blocked until cleanup
+and all synthetic checks pass. POLICY.md's seven-day Neon pre-write recovery branch
+also needs reconciliation with the owner's GitHub-file-only backup requirement.
+The restore branch is temporary validation, not a daily backup destination.
+
+Production alias rechecked unchanged: dpl_32kg64VmPERotu7wY8j9i5Zar8sk,
+commit ae1b9ef09de5eefc86fe4e18779a891c46190447. No deployment or app submission.
+October 9 original agent session log remains unavailable; attribution not inferred.

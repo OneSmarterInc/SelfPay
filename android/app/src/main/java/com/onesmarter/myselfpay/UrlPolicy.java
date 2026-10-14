@@ -3,12 +3,12 @@ import java.net.URI;
 import java.util.Locale;
 
 final class UrlPolicy {
-    static final String HOME = "https://myselfpay-review.vercel.app/";
+    static final String HOME = AppConfig.HOME;
     static boolean isInternal(String value) {
         try {
             URI uri = new URI(value);
             return "https".equalsIgnoreCase(uri.getScheme())
-                && "myselfpay-review.vercel.app".equalsIgnoreCase(uri.getHost())
+                && new URI(HOME).getHost().equalsIgnoreCase(uri.getHost())
                 && uri.getRawUserInfo() == null
                 && (uri.getPort() == -1 || uri.getPort() == 443);
         } catch (Exception ignored) { return false; }

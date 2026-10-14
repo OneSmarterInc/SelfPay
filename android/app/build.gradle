@@ -15,3 +15,12 @@ android {
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
+
+tasks.register('generateAppConfig', Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine 'python3', 'tools/generate_app_config.py', 'android'
+    inputs.file rootProject.file('../app-config.json')
+    inputs.file rootProject.file('../tools/generate_app_config.py')
+    outputs.file file('src/main/java/com/onesmarter/myselfpay/AppConfig.java')
+}
+tasks.named('preBuild').configure { dependsOn 'generateAppConfig' }

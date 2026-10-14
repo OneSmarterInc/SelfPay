@@ -3,3 +3,4 @@
 /**/build/
 *.jks
 *.keystore
+/app/src/main/java/com/onesmarter/myselfpay/AppConfig.java

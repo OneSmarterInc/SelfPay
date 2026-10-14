@@ -28,8 +28,9 @@ jobs:
       - name: Verify URL restrictions
         working-directory: android
         run: |
+          python3 ../tools/generate_app_config.py android
           mkdir -p /tmp/myselfpay-java-tests
-          javac -d /tmp/myselfpay-java-tests app/src/main/java/com/onesmarter/myselfpay/UrlPolicy.java tests/UrlPolicyTest.java
+          javac -d /tmp/myselfpay-java-tests app/src/main/java/com/onesmarter/myselfpay/AppConfig.java app/src/main/java/com/onesmarter/myselfpay/UrlPolicy.java tests/UrlPolicyTest.java
           java -cp /tmp/myselfpay-java-tests com.onesmarter.myselfpay.UrlPolicyTest
       - name: Build and lint APK
         working-directory: android

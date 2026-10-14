@@ -14,7 +14,8 @@
       "directory-data": false,
       "directory-sync-*": false,
       "main": false,
-      "backup-*": false
+      "backup-*": false,
+      "feature/android-apk": false
     }
   }
 }

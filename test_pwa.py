@@ -2,7 +2,7 @@ import io
 import json
 import struct
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from api.index import handler
 from core import ROOT
 
@@ -29,7 +29,7 @@ class PwaTests(unittest.TestCase):
         self.assertTrue(h.sent['Content-Type'].startswith('application/manifest+json'))
         manifest=json.loads(h.wfile.getvalue())
         self.assertEqual(manifest['display'],'standalone')
-        self.assertEqual(manifest['start_url'],'/')
+        self.assertEqual(manifest['start_url'],json.loads((ROOT/'app-config.json').read_text())['website_url'].rstrip('/')+'/')
         self.assertEqual(manifest['scope'],'/')
         for icon in manifest['icons']:
             with self.subTest(icon=icon['src']):
@@ -54,3 +54,9 @@ class PwaTests(unittest.TestCase):
         body=self.request('/').wfile.getvalue()
         for value in [b'/manifest.webmanifest',b'/pwa.js',b'/icons/apple-touch-icon.png',b'installHelp']:
             self.assertIn(value,body)
+
+    def test_manifest_uses_shared_address(self):
+        with patch('server.website_url',return_value='https://new-selfpay.example/'):
+            manifest=json.loads(self.request('/manifest.webmanifest').wfile.getvalue())
+        self.assertEqual(manifest['start_url'],'https://new-selfpay.example/')
+        self.assertEqual(manifest['scope'],'/')

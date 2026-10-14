@@ -60,3 +60,4 @@ class handler(server.Handler):
         with core.connect(self.database_path()) as db:
             row=db.execute('INSERT INTO login_limits VALUES(?,?,1) ON CONFLICT(key,window_id) DO UPDATE SET attempts=login_limits.attempts+1 RETURNING attempts',(key,minute)).fetchone()
         return row['attempts']<=limit
+

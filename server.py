@@ -8,6 +8,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 import core
+from tools.generate_app_config import website_url
 
 # Per-minute limits. Keying by email+IP (not email alone) stops one attacker locking out a member;
 # the IP and email ceilings still cap credential stuffing and distributed guessing.
@@ -89,6 +90,10 @@ class Handler(BaseHTTPRequestHandler):
         }
         if method=='GET' and path in assets:
             name,mime=assets[path]
+            if path=='/manifest.webmanifest':
+                manifest=json.loads((core.ROOT/'static'/name).read_text())
+                manifest['start_url']=website_url(core.ROOT)
+                return self.respond(200,json.dumps(manifest).encode(),content_type=mime)
             return self.respond(200,(core.ROOT/'static'/name).read_bytes(),content_type=mime)
         db=self.database_path()
         if path in ('/api/register','/api/login','/api/password'):
@@ -181,3 +186,4 @@ if __name__=='__main__':
     try:server.serve_forever()
     except KeyboardInterrupt:pass
     finally:server.server_close()
+

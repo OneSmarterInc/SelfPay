@@ -30,3 +30,5 @@ Physical device installation has not been verified.
 Production auto-deployment remains paused. This feature does not change backup
 workflows, run restores, or change the database. Publishing needs the owner's
 deployment decision.
+
+The manifest start URL reads `app-config.json`; see docs/app-address.md for migration and same-origin requirements.

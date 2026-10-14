@@ -2,9 +2,9 @@
 
 ## Requested destination
 
-The owner requests the existing separate repository SelfPay_Backup as the backup destination, not a new backup branch in the application repository. Do not create another repository or branch unnecessarily.
+The owner confirmed the exact destination URL: https://github.com/OneSmarterInc/MySelfPay_Backup. Use this existing separate private repository for backups. The earlier name SelfPay_Backup was clarified by this URL. Do not create another repository or branch unnecessarily.
 
-Verification is BLOCKED on the exact repository identity/access: authenticated GitHub metadata lookup for OneSmarterInc/SelfPay_Backup returned HTTP 404, and repository search for SelfPay_Backup returned no results. A private repository may be inaccessible; this is not proof it does not exist. Obtain the exact URL and connected GitHub access before changing operational backup configuration.
+Repository identity/access is CONFIRMED: authenticated GitHub metadata reverified OneSmarterInc/MySelfPay_Backup as private after the owner supplied its exact URL. No destination migration or new repository is needed.
 
 ## Confirmed existing recovery point
 
@@ -14,11 +14,11 @@ Restore run https://github.com/OneSmarterInc/SelfPay/actions/runs/38566059343 wa
 
 ## Remaining task list
 
-- Verify the exact URL, private visibility, immutable backup files and restore evidence for the requested SelfPay_Backup repository. Treat it as the requested destination pending verification; do not silently substitute or change the currently configured destination.
+- DONE: Confirm the owner's destination as OneSmarterInc/MySelfPay_Backup, verify private visibility and the existing immutable October 12 backup's successful restore evidence. Preserve this repository as the daily backup destination.
 - Complete coordinated production credential containment using the authorized maintenance plan; the existing access/handoff blocker remains. See 2026-10-14-maintenance-containment.md.
 - Obtain creation evidence linking each of the four member IDs to synthetic test accounts. Leave all records untouched until evidence is sufficient.
 - Before any deletion, create and verify a fresh recovery point and perform isolated restoration/copy testing. Preserve the approved seven-day recovery-branch exception and retention requirements; the October 12 dump alone is insufficient for a later deletion.
-- Only after the cleanup and synthetic checks pass, configure daily backups to the verified requested repository and verify a successful backup. Keep the GitHub Actions budget at $0 and Usage blocked unchanged.
+- Only after the cleanup and synthetic checks pass, enable daily backups to OneSmarterInc/MySelfPay_Backup and verify a successful backup. Keep the GitHub Actions budget at $0 and Usage blocked unchanged.
 - Complete the remaining recovery-drill scheduling and branch-protection review, and obtain the October 9 original session log when available.
 
 ## Changes and limits this turn

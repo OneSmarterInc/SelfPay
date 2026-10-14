@@ -94,3 +94,27 @@ remain DRAFT until branch testing, current pre-write backup, and owner approval
 of the concrete record. Recurring backups remain disabled; no guard bypass.
 Original October 9 agent publication log is still unavailable.
 GitHub budget and Usage blocked settings were not modified; no paid service enabled.
+
+## Secret removal and fresh backup checks — October 14, 2026
+
+Owner explicitly authorized safe removal of RESTORE_DATABASE_URL. GitHub required
+account reauthentication, completed by the owner through secure entry. The secret
+was removed and the environment UI verified to contain only BACKUP_DATABASE_URL
+and BACKUP_REPO_TOKEN. No secret values were read or recorded.
+
+Fetched backup/restore sources and SQL from main 832918cab82a2c7f2a1fa57e5692c19fd3efdea0.
+All 19 backup Python unit tests passed. An initial incomplete local source copy
+lacked the synthetic-check SQL; after fetching that committed dependency, all tests
+passed. These are unit tests, not proof of an actual Neon restore.
+
+MySelfPay_Backup privacy reverified. No Actions workflow was dispatched, budget
+or Usage blocked setting changed, deployment made, or database row deleted.
+Neon plugin discovered but not connected; connection requested. Temporary restore
+branch identity, endpoint, empty database and included allowance remain unverified.
+No restore can run until those checks and credentials are available. Recurring
+exports remain disabled until approved cleanup and synthetic checks pass.
+
+Targeted workspace session-log search found only historical SQL/change records,
+not the October 9 16:00–16:10 UTC execution session. The available remaining-publication
+record documents earlier batch 395c84be, not the later 4974b4d5 publication; it does
+not close the attribution gap. Original session evidence remains needed.

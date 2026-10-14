@@ -59,8 +59,8 @@ class CityRankingTests(unittest.TestCase):
         entries=[]
         for place in ['Dayton, OH','Dayton, KY']:
             origin=geo.lookup(place)[0]
-            # Ohio facility sits at city center, Kentucky is slightly farther away.
-            entries.append({'name':place,'location_type':'site','locations':[dict(origin,latitude=origin['latitude']+(0.05 if origin['state']=='KY' else 0),precision='city')]})
+            # Kentucky is closer: population must still put Ohio first.
+            entries.append({'name':place,'location_type':'site','locations':[dict(origin,latitude=origin['latitude']+(0.05 if origin['state']=='OH' else 0),precision='city')]})
         with patch.object(core,'catalog',return_value={'version':'test','entries':entries,'offers':[]}):
             result=core.search(dict(mod='MRI',body='brain',location='Dayton',radius=25))
         self.assertIsNone(result['resolved_location'])
@@ -69,3 +69,26 @@ class CityRankingTests(unittest.TestCase):
 if __name__=='__main__':unittest.main()
 
 
+
+class PopulationRankingTests(unittest.TestCase):
+    def test_population_beats_facility_distance(self):
+        for city, small_state in [('Dayton','KY'), ('Columbus','IN')]:
+            entries=[]
+            for state in ['OH',small_state]:
+                origin=geo.lookup(f'{city}, {state}')[0]
+                entries.append({'name':state,'location_type':'site','locations':[dict(origin,latitude=origin['latitude']+(0.1 if state=='OH' else 0),precision='city')]})
+            with patch.object(core,'catalog',return_value={'version':'test','entries':entries,'offers':[]}):
+                result=core.search(dict(mod='MRI',body='brain',location=city,radius=25))
+            self.assertEqual(result['location_suggestions'][0],f'{city}, OH')
+            self.assertIsNone(result['resolved_location'])
+
+    def test_springfield_still_requires_state(self):
+        entries=[]
+        for state in ['OH','IL','MA']:
+            origin=geo.lookup(f'Springfield, {state}')[0]
+            entries.append({'name':state,'location_type':'site','locations':[dict(origin,precision='city')]})
+        with patch.object(core,'catalog',return_value={'version':'test','entries':entries,'offers':[]}):
+            result=core.search(dict(mod='MRI',body='brain',location='Springfield',radius=25))
+        self.assertIsNone(result['resolved_location'])
+        self.assertGreater(len(result['location_suggestions']),1)
+        self.assertIn('Choose a location',result['location_notice'])

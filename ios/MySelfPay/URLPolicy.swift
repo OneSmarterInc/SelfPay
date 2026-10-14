@@ -1,7 +1,7 @@
 import Foundation
 
 enum URLPolicy {
-    static let home = URL(string: "https://myselfpay-review.vercel.app/")!
+    static let home = AppConfig.home
     static func isInternal(_ url: URL) -> Bool {
         url.scheme?.lowercased() == "https" &&
         url.host?.lowercased() == home.host &&

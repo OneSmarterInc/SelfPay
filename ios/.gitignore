@@ -4,3 +4,4 @@ MySelfPay/Assets.xcassets/AppIcon.appiconset/icon.png
 *.p12
 *.mobileprovision
 *.p8
+MySelfPay/AppConfig.swift

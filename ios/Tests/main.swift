@@ -1,6 +1,7 @@
 import Foundation
-let good = ["https://myselfpay-review.vercel.app/", "https://myselfpay-review.vercel.app:443/a?q=1"]
-let bad = ["http://myselfpay-review.vercel.app/", "https://myselfpay-review.vercel.app.evil.example/", "https://user@myselfpay-review.vercel.app/", "https://myselfpay-review.vercel.app:444/", "https://myselfpay-review.vercel.app@evil.example/"]
+let host = URLPolicy.home.host!
+let good = ["https://\(host)/", "https://\(host):443/a?q=1"]
+let bad = ["http://\(host)/", "https://\(host).evil.example/", "https://user@\(host)/", "https://\(host):444/", "https://\(host)@evil.example/"]
 for value in good { precondition(URLPolicy.isInternal(URL(string:value)!)) }
 for value in bad { precondition(!URLPolicy.isInternal(URL(string:value)!)) }
 for value in ["javascript:alert(1)", "file:///private/test", "data:text/html,test"] {

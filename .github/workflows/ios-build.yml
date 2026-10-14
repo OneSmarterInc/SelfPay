@@ -26,7 +26,7 @@ jobs:
       - name: Check URL restrictions
         working-directory: ios
         run: |
-          swiftc MySelfPay/URLPolicy.swift Tests/main.swift -o "$RUNNER_TEMP/url-policy-tests"
+          swiftc MySelfPay/AppConfig.swift MySelfPay/URLPolicy.swift Tests/main.swift -o "$RUNNER_TEMP/url-policy-tests"
           "$RUNNER_TEMP/url-policy-tests"
       - name: Compile iPhone device app without signing
         working-directory: ios

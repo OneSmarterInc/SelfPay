@@ -54,7 +54,7 @@ jobs:
           gem install xcodeproj -v 1.27.0 --user-install --no-document
           ruby generate_project.rb
           python3 generate_icon.py
-          swiftc MySelfPay/URLPolicy.swift Tests/main.swift -o "$RUNNER_TEMP/url-policy-tests"
+          swiftc MySelfPay/AppConfig.swift MySelfPay/URLPolicy.swift Tests/main.swift -o "$RUNNER_TEMP/url-policy-tests"
           "$RUNNER_TEMP/url-policy-tests"
       - name: Archive and export signed IPA
         if: inputs.mode != 'verify'

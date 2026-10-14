@@ -1,5 +1,6 @@
 require 'xcodeproj'
 Dir.chdir(__dir__)
+abort 'Invalid app configuration' unless system('python3', '../tools/generate_app_config.py', 'ios')
 project = Xcodeproj::Project.new('MySelfPay.xcodeproj')
 target = project.new_target(:application, 'MySelfPay', :ios, '15.0')
 group = project.main_group.new_group('MySelfPay', 'MySelfPay')

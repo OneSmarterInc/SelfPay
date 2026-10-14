@@ -1,6 +1,6 @@
 # October 14 developer-task execution record
 
-Status: PARTIAL — source changes completed; database and conflicting release decisions blocked.
+Status: PARTIAL — source and artifact audit complete; database execution and historical log evidence pending.
 
 ## A — App-repository dump removal
 
@@ -66,3 +66,31 @@ The five inspected production history entries use the same creator account.
 
 Production remains paused; directory-data preserved; Directory sync remains paused.
 Synthetic data only. GitHub budget was not changed; no paid service was enabled.
+
+## Follow-up execution — October 14, 2026
+
+Owner requested remaining work now. Reopened and finished PWA PR #22; merged at
+f46a608573c44aca7a92165dff62d92083feed01. PWA manifest now reads website_url from
+app-config.json, shared with iOS and Android source generation. Cross-domain PWA
+migration requires deploying at the new origin and reinstalling; documented.
+31 local Python tests passed plus service-worker offline/network privacy checks.
+No native build or app store submission was run. Main and PWA branch Vercel
+deployment are disabled; merge carries skip-ci. Production deployment rechecked:
+dpl_32kg64VmPERotu7wY8j9i5Zar8sk, unchanged ae1b9ef09de5eefc86fe4e18779a891c46190447.
+
+Completed artifact inventory across all 272 runs returned by GitHub. All artifact
+list calls succeeded. Seven artifacts remain: three IPA, two simulator ZIP and
+two APK bundles. Downloaded and recursively inspected all seven archives, including
+nested application archives, for SQL/dump/database filenames and PostgreSQL dump
+signatures. No database dump found. This does not prove absence of deliberately
+obfuscated data or copies outside these artifacts. No artifacts deleted.
+Artifact IDs: 11887525479, 11886991696, 11885977545, 11880315230,
+11880190608, 11811854334, 11813160919.
+
+RESTORE_DATABASE_URL remains present (name only inspected). GitHub deletion
+confirmation is prepared; final removal awaits required action-time confirmation.
+No temporary Neon branch or live SQL was executed. Exact cleanup SQL and record
+remain DRAFT until branch testing, current pre-write backup, and owner approval
+of the concrete record. Recurring backups remain disabled; no guard bypass.
+Original October 9 agent publication log is still unavailable.
+GitHub budget and Usage blocked settings were not modified; no paid service enabled.

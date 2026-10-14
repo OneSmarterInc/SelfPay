@@ -5,19 +5,15 @@ on:
       backup_date:
         description: 'Exact backup date YYYY-MM-DD'
         required: true
-        default: '2026-10-12'
       backup_commit:
         description: 'Reviewed full dump-only commit SHA'
         required: true
-        default: '892343ff15544204a5fab6fecb7369f255af35f9'
       restore_branch_id:
         description: 'Verified disposable Neon branch ID (never live)'
         required: true
-        default: 'br-lively-recipe-b7948zn5'
       restore_host:
         description: 'Verified disposable direct Neon hostname'
         required: true
-        default: 'ep-rough-sky-b78gwt56.c-13.us-east-1.aws.neon.tech'
 permissions:
   contents: read
 concurrency:

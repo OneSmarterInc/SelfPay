@@ -1,0 +1,83 @@
+name: iOS signed release
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Verify signing only, build IPA, or build and upload to TestFlight
+        type: choice
+        options: [verify, build, upload]
+        default: verify
+      no_cost_confirmed:
+        description: Included allowance available and Actions zero-dollar blocking budget unchanged
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: ios-signed-release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: inputs.no_cost_confirmed && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/ios-app')
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      IOS_TEAM_ID: 73J498V493
+      IOS_BUNDLE_ID: com.onesmarter.myselfpay
+      BUILD_NUMBER: ${{ github.run_number }}
+      RELEASE_MODE: ${{ inputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify and install signing assets
+        env:
+          IOS_DISTRIBUTION_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
+          IOS_DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
+          IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: python3 ios/prepare_signing.py
+      - name: Generate project and verify URL policy
+        if: inputs.mode != 'verify'
+        working-directory: ios
+        run: |
+          gem install xcodeproj -v 1.27.0 --user-install --no-document
+          ruby generate_project.rb
+          python3 generate_icon.py
+          swiftc MySelfPay/URLPolicy.swift Tests/main.swift -o "$RUNNER_TEMP/url-policy-tests"
+          "$RUNNER_TEMP/url-policy-tests"
+      - name: Archive and export signed IPA
+        if: inputs.mode != 'verify'
+        working-directory: ios
+        run: |
+          xcodebuild -quiet -project MySelfPay.xcodeproj -scheme MySelfPay -configuration Release -destination 'generic/platform=iOS' -archivePath build/MySelfPay.xcarchive DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$SIGNING_IDENTITY" PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" archive
+          codesign --verify --deep --strict build/MySelfPay.xcarchive/Products/Applications/MySelfPay.app
+          xcodebuild -quiet -exportArchive -archivePath build/MySelfPay.xcarchive -exportPath build/export -exportOptionsPlist "$RUNNER_TEMP/selfpay-signing/export.plist"
+          test -s build/export/MySelfPay.ipa
+      - uses: actions/upload-artifact@v4
+        if: inputs.mode != 'verify'
+        with:
+          name: MySelfPay-AppStore-IPA
+          path: ios/build/export/MySelfPay.ipa
+          retention-days: 1
+          if-no-files-found: error
+      - name: Upload to App Store Connect
+        if: inputs.mode == 'upload'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          API_PRIVATE_KEYS_DIR: ${{ runner.temp }}/selfpay-signing
+        run: |
+          xcrun altool --validate-app -f ios/build/export/MySelfPay.ipa -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+          xcrun altool --upload-app -f ios/build/export/MySelfPay.ipa -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+      - name: Remove temporary signing assets
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/selfpay-signing/signing.keychain-db" 2>/dev/null || true
+          if [ -f "$RUNNER_TEMP/selfpay-signing/profile-path" ]; then
+            IFS= read -r installed_profile < "$RUNNER_TEMP/selfpay-signing/profile-path"
+            rm -f -- "$installed_profile"
+          fi
+          rm -rf -- "$RUNNER_TEMP/selfpay-signing"

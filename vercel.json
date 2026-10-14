@@ -15,7 +15,8 @@
       "directory-sync-*": false,
       "main": false,
       "backup-*": false,
-      "feature/cross-platform-pwa": false
+      "feature/cross-platform-pwa": false,
+      "feature/android-apk": false
     }
   }
 }

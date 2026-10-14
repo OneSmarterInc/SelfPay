@@ -1,0 +1,26 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.onesmarter.myselfpay'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.onesmarter.myselfpay'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+    }
+    buildTypes {
+        debug { applicationIdSuffix '.test'; versionNameSuffix '-test' }
+        release { minifyEnabled false }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+
+tasks.register('generateAppConfig', Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine 'python3', 'tools/generate_app_config.py', 'android'
+    inputs.file rootProject.file('../app-config.json')
+    inputs.file rootProject.file('../tools/generate_app_config.py')
+    outputs.file file('src/main/java/com/onesmarter/myselfpay/AppConfig.java')
+}
+tasks.named('preBuild').configure { dependsOn 'generateAppConfig' }

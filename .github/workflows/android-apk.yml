@@ -1,0 +1,48 @@
+name: Android test APK
+on:
+  push:
+    branches: ['feature/android-apk']
+    paths: ['android/**', '.github/workflows/android-apk.yml']
+  pull_request:
+    paths: ['android/**', '.github/workflows/android-apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Verify URL restrictions
+        working-directory: android
+        run: |
+          python3 ../tools/generate_app_config.py android
+          mkdir -p /tmp/myselfpay-java-tests
+          javac -d /tmp/myselfpay-java-tests app/src/main/java/com/onesmarter/myselfpay/AppConfig.java app/src/main/java/com/onesmarter/myselfpay/UrlPolicy.java tests/UrlPolicyTest.java
+          java -cp /tmp/myselfpay-java-tests com.onesmarter.myselfpay.UrlPolicyTest
+      - name: Build and lint APK
+        working-directory: android
+        run: gradle --no-daemon :app:assembleDebug :app:lintDebug
+      - name: Prepare download
+        run: |
+          mkdir -p apk-download
+          cp android/app/build/outputs/apk/debug/app-debug.apk apk-download/MySelfPay-test.apk
+          sha256sum apk-download/MySelfPay-test.apk > apk-download/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MySelfPay-test-apk
+          path: apk-download/
+          if-no-files-found: error
+          retention-days: 14

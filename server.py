@@ -20,6 +20,10 @@ GUEST_AGENT_PER_IP_HOUR = 30
 GUEST_AGENT_GLOBAL_DAY = 2000
 
 
+class ServiceUnavailableError(RuntimeError):
+    """A deployment is missing a required service configuration."""
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version='MySelfPayPOC'
     cookie_name='selfpay_session'
@@ -153,6 +157,8 @@ class Handler(BaseHTTPRequestHandler):
         return self.respond(404,{'error':'Not found'})
     def dispatch(self,method):
         try:self.route_selfpay_request(method)
+        except ServiceUnavailableError as exc:
+            self.respond(503,{'error':str(exc),'code':'service_not_configured'})
         except core.GuestAgentLimited as exc:
             self.respond(429,{'error':str(exc),'code':'guest_preview_limit','reason':exc.reason,'retry_after':exc.retry_after},retry_after=exc.retry_after or None)
         except core.GuestCreationLimited as exc:
@@ -186,4 +192,5 @@ if __name__=='__main__':
     try:server.serve_forever()
     except KeyboardInterrupt:pass
     finally:server.server_close()
+
 

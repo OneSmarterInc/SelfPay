@@ -71,8 +71,15 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   assert.match(node('searchNotice').textContent,/Search changed/);
   vm.runInContext('state.selected=offers.slice(0,2).map(o=>o.id);compare()',ctx);
   assert.match(node('modal').innerHTML,/comparison-table/);
-  vm.runInContext('request(offers[0])',ctx);node('simulateRequest').onclick();
-  assert.match(node('requestStatus').innerHTML,/Sent \(simulated\)/);
+  assert.equal(vm.runInContext("phoneOf({coverage:'5692 Far Hills Ave, Dayton, OH 45429. 937-438-3384'})",ctx),'937-438-3384');
+  assert.equal(vm.runInContext("addressOf({coverage:'5692 Far Hills Ave, Dayton, OH 45429. 937-438-3384'})",ctx),'5692 Far Hills Ave, Dayton, OH 45429');
+  assert.equal(vm.runInContext("addressOf({coverage:'Multiple markets'})",ctx),'');
+  assert.match(vm.runInContext("contactActions({entry:{name:'PDI — Dayton',coverage:'5692 Far Hills Ave, Dayton, OH 45429. 937-438-3384',source:'https://example.org/mri'}})",ctx),/href="tel:\+19374383384"[\s\S]*Website[\s\S]*Directions/);
+  assert.equal(vm.runInContext("contactActions({entry:{name:'X',coverage:'Multiple markets',source:'javascript:alert(1)'}})",ctx),'');
+  vm.runInContext('request(offers[0])',ctx);
+  assert.match(node('modal').innerHTML,/Ask for a self-pay price/);
+  assert.match(node('modal').innerHTML,/Questions to ask/);
+  assert.doesNotMatch(node('modal').innerHTML,/simulat/i);
   assert.match(vm.runInContext('initialSearch()',ctx),/Directory loaded: 74 researched entries/);
   assert.match(vm.runInContext('initialSearch()',ctx),/Try sample: knee MRI/);
   vm.runInContext("state.mode='agent';render()",ctx);

@@ -82,6 +82,7 @@ class Handler(BaseHTTPRequestHandler):
         path=urlparse(self.path).path
         assets={
             '/':('index.html','text/html'),
+            '/logo.png':('logo.png','image/png'),
             '/app.js':('app.js','text/javascript'),
             '/pwa.js':('pwa.js','text/javascript'),
             '/sw.js':('sw.js','text/javascript'),

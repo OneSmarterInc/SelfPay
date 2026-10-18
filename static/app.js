@@ -31,7 +31,7 @@ function scan(){
 }
 function explore(){modal(`<h2>I don’t have an order</h2><p>You can explore prices for a known exam. A facility may require a clinician’s order before performing it.</p><div class="stack"><button id="known">I know the imaging exam — browse prices</button><div class="lead"><h3>I want a specialist second opinion</h3><span class="badge neutral">Planned · not available yet</span><p>Find a specialist consultation in a future version.</p></div><div class="lead"><h3>I want my existing images reviewed</h3><span class="badge neutral">Planned · not available yet</span><p>Image-review services are planned for a future version.</p></div></div><p>MySelfPay cannot decide which medical test you need.</p>`);$('known').onclick=()=>{$('modal').close();state.mode='classic';render()}}
 function coverageSummary(showPublished=false){
-  if(!catalogReady)return showPublished?'<section class="panel"><p>Our current directory indexes <strong>105 provider listings</strong> with explicitly listed coverage in <strong>50 U.S. states</strong>.</p></section>':'';
+  if(!catalogReady)return showPublished?'<section class="panel" id="publicCoverage" aria-live="polite"><p>Loading directory coverage…</p></section>':'';
   const validStates=new Set('AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY'.split(' '));
   const states=new Set();
   for(const entry of DIRECTORY){
@@ -158,8 +158,20 @@ async function signInGuest(kind='search'){
 }
 let pendingEntry=null;
 function updateNavigation(){$('history').hidden=true;$('directory').hidden=!account;$('profile').textContent=account?'Sign out':'Sign in as guest'}
+async function loadPublicCoverage(){
+  const target=$('publicCoverage');
+  if(!target)return;
+  try{
+    const response=await fetch('/api/directory-summary',{cache:'no-store',credentials:'omit'});
+    if(!response.ok)throw new Error('Summary unavailable');
+    const data=await response.json();
+    if(!Number.isInteger(data.listing_count)||data.listing_count<0||!Number.isInteger(data.state_count)||data.state_count<0||data.state_count>50)throw new Error('Invalid summary');
+    if($('publicCoverage')===target)target.innerHTML=`<p>Our current directory indexes <strong>${data.listing_count.toLocaleString()} provider listings</strong> with explicitly listed coverage in <strong>${data.state_count} U.S. states</strong>.</p>`;
+  }catch{if($('publicCoverage')===target)target.textContent='Directory coverage is temporarily unavailable.'}
+}
 function welcome(){updateNavigation();pageTop('welcome');
   $('app').innerHTML=`<section class="welcome-intro"><div><div class="eyebrow">WELCOME TO MYSELFPAY</div><h1>Understand your self-pay imaging options.</h1><p class="welcome-lead">Find MRI and CT services, compare published prices, and see what is included before you contact a facility.</p><p>You can explore self-pay options whether you have health coverage or are paying entirely yourself. Your facility confirms the exact service, eligibility and final price.</p><div class="actions"><button class="primary" id="welcomeBegin">${'Find imaging options'}</button><button id="welcomeAccount">${account?'Sign out':'Sign in as guest'}</button></div></div><aside class="welcome-account"><h2>Explore as a guest.<br>No password needed.</h2><p>Search and compare freely. Try up to 3 chat conversations with 5 messages each. Guest chat is not saved.</p><p class="small">Saved history and full agent access are planned for future accounts; accounts are not available yet.</p><span class="badge neutral">${account?'Signed in as '+esc(account.name):'No email or password required'}</span><p class="small">Your guest session lasts up to 8 hours. Chat text stays only in the current page and disappears on refresh. Only usage counts are stored; your searched location is not saved. Use synthetic information only.</p></aside></section><section class="welcome-steps" aria-label="How MySelfPay works"><div><span class="step-number">1</span><h3>Tell us what you need</h3><p>Use the service on your order, type a request, or try the sample order scan.</p></div><div><span class="step-number">2</span><h3>Compare the details</h3><p>Review prices, included fees and restrictions for relevant options.</p></div><div><span class="step-number">3</span><h3>Confirm with the facility</h3><p>Use provider links and a question checklist to confirm the exact exam and total.</p></div></section><section class="welcome-paths"><h2>How would you like to begin?</h2><div class="welcome-choices"><button class="journey-card" data-journey="search"><strong>Search for a service</strong><span>Choose your imaging exam and location.</span></button><button class="journey-card" data-journey="agent"><strong>Ask MySelfPay</strong><span>Describe your search in a conversation.</span></button><button class="journey-card" data-journey="scan"><strong>I have a doctor's order</strong><span>Try the sample scan and review the exam details.</span></button></div><button id="welcomeExplore" style="margin-top:16px">I don't have an order</button></section>${coverageSummary(true)}`;
+  void loadPublicCoverage();
   if($('continueSearch'))$('continueSearch').onclick=safe(history);
   $('welcomeBegin').onclick=safe(()=>enterJourney('search'));
   $('welcomeAccount').onclick=safe(()=>account?signOut():signInGuest());

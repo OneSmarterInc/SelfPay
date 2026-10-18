@@ -163,6 +163,19 @@ def publish(batch,path=DB):
         db.execute('INSERT INTO publish_events(batch_id,previous_batch,created,action) VALUES(?,?,?,?)',(batch,old,time.time(),'publish' if row['status']=='staged' else 'rollback'))
     return {'active_batch':batch,'previous_batch':old}
 
+def directory_summary(path=DB):
+    """Public counts only; no sessions or personal records are read."""
+    import re
+    valid=set('AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY'.split())
+    with connect(path) as db:
+        rows=db.execute("SELECT payload FROM entries WHERE batch_id=(SELECT value FROM settings WHERE key='active_batch')").fetchall()
+    states=set()
+    for row in rows:
+        entry=json.loads(row['payload'])
+        states.update(s.strip().upper() for s in re.split(r'[;,/|]+',entry.get('states','')))
+        states.update(str(loc.get('state','')).strip().upper() for loc in entry.get('locations',[]))
+    return {'listing_count':len(rows),'state_count':len(states & valid)}
+
 def catalog(path=DB):
     with connect(path) as db:
         batch=active_batch(db)

@@ -101,6 +101,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200,json.dumps(manifest).encode(),content_type=mime)
             return self.respond(200,(core.ROOT/'static'/name).read_bytes(),content_type=mime)
         db=self.database_path()
+        if path=='/api/directory-summary' and method=='GET':return self.respond(200,core.directory_summary(db))
         if path in ('/api/register','/api/login','/api/password'):
             return self.respond(410,{'error':'Use Sign in as guest. Email and password sign-in is disabled.'})
         if path=='/api/guest' and method=='POST':

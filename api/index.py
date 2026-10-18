@@ -24,13 +24,14 @@ class handler(server.Handler):
     def database_path(self):
         url=os.environ.get('DATABASE_URL','')
         if not url.startswith(('postgres://','postgresql://')):
-            raise RuntimeError('Hosted database not configured')
+            raise server.ServiceUnavailableError('Sign-in is not configured for this deployment. Please use '+server.website_url(core.ROOT))
         if not uses_pooler(url):
             print('SELFPAY_DB_WARNING DATABASE_URL is a direct Neon endpoint; use the pooled (-pooler) URL.',flush=True)
         return url
     def validate_origin(self):
         host=self.request_header('X-Forwarded-Host') or self.request_header('Host','')
         allowed=set(filter(None,[os.environ.get('VERCEL_URL'),os.environ.get('VERCEL_PROJECT_PRODUCTION_URL'),os.environ.get('VERCEL_BRANCH_URL')]))
+        allowed.add(server.urlparse(server.website_url(core.ROOT)).netloc)
         allowed.update(x.strip() for x in os.environ.get('APP_HOSTS','').split(',') if x.strip())
         origin=self.request_header('Origin')
         valid=host in allowed and (not origin or origin=='https://'+host)
@@ -60,4 +61,5 @@ class handler(server.Handler):
         with core.connect(self.database_path()) as db:
             row=db.execute('INSERT INTO login_limits VALUES(?,?,1) ON CONFLICT(key,window_id) DO UPDATE SET attempts=login_limits.attempts+1 RETURNING attempts',(key,minute)).fetchone()
         return row['attempts']<=limit
+
 

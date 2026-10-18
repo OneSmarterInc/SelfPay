@@ -43,6 +43,15 @@ class PwaTests(unittest.TestCase):
         h=self.request('/icons/apple-touch-icon.png')
         self.assertEqual(struct.unpack('>II',h.wfile.getvalue()[16:24]),(180,180))
 
+    def test_brand_assets_are_served(self):
+        h=self.request('/fonts/public-sans.woff2')
+        self.assertEqual(h.sent['Content-Type'],'font/woff2')
+        self.assertEqual(h.wfile.getvalue()[:4],b'wOF2')
+        h=self.request('/logo.png')
+        self.assertEqual(h.wfile.getvalue()[:8],b'\x89PNG\r\n\x1a\n')
+        body=self.request('/').wfile.getvalue()
+        self.assertIn(b'by One Smarter, Inc.',body)
+
     def test_worker_and_offline_page_work_without_database(self):
         for path,mime in [('/sw.js','text/javascript'),('/pwa.js','text/javascript'),('/offline.html','text/html')]:
             h=self.request(path)
@@ -52,11 +61,17 @@ class PwaTests(unittest.TestCase):
 
     def test_home_links_pwa_assets(self):
         body=self.request('/').wfile.getvalue()
-        for value in [b'/manifest.webmanifest',b'/pwa.js',b'/icons/apple-touch-icon.png',b'installHelp']:
+        for value in [b'/manifest.webmanifest',b'/pwa.js',b'/icons/apple-touch-icon.png']:
             self.assertIn(value,body)
+
+    def test_home_has_no_install_controls(self):
+        body=self.request('/').wfile.getvalue()
+        self.assertNotIn(b'id="installApp"',body)
+        self.assertNotIn(b'id="installHelp"',body)
 
     def test_manifest_uses_shared_address(self):
         with patch('server.website_url',return_value='https://new-selfpay.example/'):
             manifest=json.loads(self.request('/manifest.webmanifest').wfile.getvalue())
         self.assertEqual(manifest['start_url'],'https://new-selfpay.example/')
         self.assertEqual(manifest['scope'],'/')
+

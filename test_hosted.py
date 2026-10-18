@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import unittest
 from unittest.mock import patch
@@ -22,6 +23,17 @@ class HostedTests(unittest.TestCase):
         h.do_GET();h.do_POST();h.do_DELETE()
         self.assertEqual([c.args for c in h.route_selfpay_request.call_args_list],
                          [('GET',),('POST',),('DELETE',)])
+    def test_configured_custom_domain_stays_same_origin(self):
+        h=self.instance()
+        with patch.dict(os.environ, {'APP_HOSTS':'','VERCEL_URL':'review.vercel.app'}):
+            h.headers={'Host':'myselfpay.onesmarter.com','Origin':'https://myselfpay.onesmarter.com'}
+            self.assertTrue(h.validate_origin())
+            for origin in ['https://attacker.example', 'http://myselfpay.onesmarter.com', 'https://myselfpay.onesmarter.com.attacker.example']:
+                h.headers['Origin']=origin
+                self.assertFalse(h.validate_origin())
+            h.headers={'Host':'myselfpay.onesmarter.com.attacker.example'}
+            self.assertFalse(h.validate_origin())
+
     def test_host_and_https_origin(self):
         h=self.instance()
         with patch.dict(os.environ,{'VERCEL_URL':'review.vercel.app','APP_HOSTS':'','VERCEL_PROJECT_PRODUCTION_URL':''}):
@@ -66,6 +78,19 @@ class HostedTests(unittest.TestCase):
             h.do_GET()
         self.assertEqual(statuses,[200])
         self.assertIn(b'MySelfPay',h.wfile.getvalue())
+    def test_unconfigured_preview_returns_actionable_503(self):
+        h=self.instance()
+        h.path='/api/guest'
+        h.send_response=lambda status:setattr(h,'status',status)
+        h.validate_origin=lambda:True
+        with patch.dict(os.environ, {'DATABASE_URL':''}):
+            h.do_POST()
+        self.assertEqual(h.status,503)
+        body=json.loads(h.wfile.getvalue())
+        self.assertEqual(body['code'],'service_not_configured')
+        self.assertIn('https://myselfpay.onesmarter.com/',body['error'])
+        self.assertNotIn('restart the local app',body['error'])
+
     def test_database_fails_closed(self):
         with patch.dict(os.environ,{'DATABASE_URL':''}):
             with self.assertRaises(RuntimeError):self.instance().database_path()
@@ -119,3 +144,4 @@ class HostedTests(unittest.TestCase):
         p.__exit__(ValueError,None,None)
         self.assertEqual(p.connection.calls,['rollback','close'])
 if __name__=='__main__':unittest.main()
+

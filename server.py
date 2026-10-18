@@ -20,6 +20,10 @@ GUEST_AGENT_PER_IP_HOUR = 30
 GUEST_AGENT_GLOBAL_DAY = 2000
 
 
+class ServiceUnavailableError(RuntimeError):
+    """A deployment is missing a required service configuration."""
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version='MySelfPayPOC'
     cookie_name='selfpay_session'
@@ -27,7 +31,7 @@ class Handler(BaseHTTPRequestHandler):
     def respond(self,status,data,cookie=None,content_type='application/json',retry_after=None):
         body=json.dumps(data).encode() if content_type=='application/json' else data
         self.send_response(status)
-        self.send_header('Content-Type',content_type+('' if content_type.startswith('image/') else '; charset=utf-8'))
+        self.send_header('Content-Type',content_type+('' if content_type.startswith(('image/','font/')) else '; charset=utf-8'))
         self.send_header('Content-Length',str(len(body)))
         self.send_header('Cache-Control','no-store')
         if retry_after is not None:self.send_header('Retry-After',str(retry_after))
@@ -78,6 +82,8 @@ class Handler(BaseHTTPRequestHandler):
         path=urlparse(self.path).path
         assets={
             '/':('index.html','text/html'),
+            '/logo.png':('logo.png','image/png'),
+            '/fonts/public-sans.woff2':('fonts/public-sans.woff2','font/woff2'),
             '/app.js':('app.js','text/javascript'),
             '/pwa.js':('pwa.js','text/javascript'),
             '/sw.js':('sw.js','text/javascript'),
@@ -96,6 +102,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200,json.dumps(manifest).encode(),content_type=mime)
             return self.respond(200,(core.ROOT/'static'/name).read_bytes(),content_type=mime)
         db=self.database_path()
+        if path=='/api/directory-summary' and method=='GET':return self.respond(200,core.directory_summary(db))
         if path in ('/api/register','/api/login','/api/password'):
             return self.respond(410,{'error':'Use Sign in as guest. Email and password sign-in is disabled.'})
         if path=='/api/guest' and method=='POST':
@@ -153,6 +160,8 @@ class Handler(BaseHTTPRequestHandler):
         return self.respond(404,{'error':'Not found'})
     def dispatch(self,method):
         try:self.route_selfpay_request(method)
+        except ServiceUnavailableError as exc:
+            self.respond(503,{'error':str(exc),'code':'service_not_configured'})
         except core.GuestAgentLimited as exc:
             self.respond(429,{'error':str(exc),'code':'guest_preview_limit','reason':exc.reason,'retry_after':exc.retry_after},retry_after=exc.retry_after or None)
         except core.GuestCreationLimited as exc:
@@ -186,4 +195,5 @@ if __name__=='__main__':
     try:server.serve_forever()
     except KeyboardInterrupt:pass
     finally:server.server_close()
+
 

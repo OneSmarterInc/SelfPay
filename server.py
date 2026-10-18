@@ -31,7 +31,7 @@ class Handler(BaseHTTPRequestHandler):
     def respond(self,status,data,cookie=None,content_type='application/json',retry_after=None):
         body=json.dumps(data).encode() if content_type=='application/json' else data
         self.send_response(status)
-        self.send_header('Content-Type',content_type+('' if content_type.startswith('image/') else '; charset=utf-8'))
+        self.send_header('Content-Type',content_type+('' if content_type.startswith(('image/','font/')) else '; charset=utf-8'))
         self.send_header('Content-Length',str(len(body)))
         self.send_header('Cache-Control','no-store')
         if retry_after is not None:self.send_header('Retry-After',str(retry_after))
@@ -83,6 +83,7 @@ class Handler(BaseHTTPRequestHandler):
         assets={
             '/':('index.html','text/html'),
             '/logo.png':('logo.png','image/png'),
+            '/fonts/public-sans.woff2':('fonts/public-sans.woff2','font/woff2'),
             '/app.js':('app.js','text/javascript'),
             '/pwa.js':('pwa.js','text/javascript'),
             '/sw.js':('sw.js','text/javascript'),

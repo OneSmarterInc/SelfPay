@@ -30,7 +30,7 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
 {
   vm.runInContext(fs.readFileSync('static/app.js','utf8'),ctx);
   await vm.runInContext('bootReady',ctx);
-  assert.match(node('app').innerHTML,/Understand your self-pay imaging options/);
+  assert.match(node('app').innerHTML,/Find self-pay MRI and CT near you/);
   await vm.runInContext('signInGuest()',ctx);
   assert.equal(node('profile').textContent,'Sign out');
   assert.equal(node('history').hidden,true);
@@ -42,8 +42,8 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   await vm.runInContext('talk("Find knee MRI without contrast near Cincinnati under $500")',ctx);
   assert.equal(vm.runInContext('results.length',ctx),2);
   assert.equal(vm.runInContext('state.messages.length',ctx),2);
-  assert.equal(vm.runInContext("price({type:'quote',amount:null})",ctx),'Quote required');
-  assert.equal(vm.runInContext("typeLabel({type:'quote'})",ctx),'Quote / confirmation required');
+  assert.equal(vm.runInContext("price({type:'quote',amount:null})",ctx),'Ask for a price');
+  assert.equal(vm.runInContext("typeLabel({type:'quote'})",ctx),'Price on request');
   const saved=await vm.runInContext('api("/conversations")',ctx);assert.equal(saved.conversations.length,0);
   vm.runInContext('detail("aff-mri")',ctx);assert.match(node('app').innerHTML,/Questions to ask the facility/);
   assert.equal(saveAttempts,0);
@@ -76,6 +76,14 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   assert.equal(vm.runInContext("addressOf({coverage:'Multiple markets'})",ctx),'');
   assert.match(vm.runInContext("contactActions({entry:{name:'PDI — Dayton',coverage:'5692 Far Hills Ave, Dayton, OH 45429. 937-438-3384',source:'https://example.org/mri'}})",ctx),/href="tel:\+19374383384"[\s\S]*Website[\s\S]*Directions/);
   assert.equal(vm.runInContext("contactActions({entry:{name:'X',coverage:'Multiple markets',source:'javascript:alert(1)'}})",ctx),'');
+  assert.equal(vm.runInContext("infoPage('for-imaging-centers')",ctx),true);
+  assert.match(node('app').innerHTML,/Free during the pilot/);
+  assert.match(node('app').innerHTML,/mailto:partners@onesmarter\.com/);
+  for(const key of ['contact','privacy','terms'])assert.equal(vm.runInContext(`infoPage('${key}')`,ctx),true);
+  assert.equal(vm.runInContext("infoPage('nope')",ctx),false);
+  assert.equal(vm.runInContext("JSON.stringify(restrictionsOf({included:'Official site offers self-pay MRI. No dollar amount verified.',entry:{notes:'Official site offers self-pay MRI; No dollar amount verified; Order required'}}))",ctx),'["Order required"]');
+  assert.match(vm.runInContext("questions({mod:'MRI',order:'Review the facility restrictions below and confirm the exact order requirement.'})[3]",ctx),/^Do you need a doctor’s order or referral\?$/);
+  assert.match(vm.runInContext("questions({mod:'MRI',order:'Physician order required'})[3]",ctx),/The listing says: Physician order required\./);
   vm.runInContext('request(offers[0])',ctx);
   assert.match(node('modal').innerHTML,/Ask for a self-pay price/);
   assert.match(node('modal').innerHTML,/Questions to ask/);
@@ -113,13 +121,13 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   storedUsage={};
   await vm.runInContext('api("/logout",{})',ctx);
   const rejected=await vm.runInContext('api("/catalog").then(()=>false).catch(()=>true)',ctx);assert.equal(rejected,true);
-  assert.equal(node('profile').textContent,'Sign in as guest');
+  assert.equal(node('profile').textContent,'Start searching');
   assert.equal(node('history').hidden,true);
   assert.doesNotMatch(node('app').innerHTML,/loginForm|Create an account/);
   await vm.runInContext('signInGuest("agent")',ctx);
   assert.equal(vm.runInContext('state.mode',ctx),'agent');
   await vm.runInContext('signOut()',ctx);
-  assert.equal(node('profile').textContent,'Sign in as guest');
+  assert.equal(node('profile').textContent,'Start searching');
   assert.equal(vm.runInContext('account',ctx),null);
   console.log('Client workflow checks, including guest privacy, quotas and catalog failure recovery, passed with stub transport. No browser visual QA.');
 }

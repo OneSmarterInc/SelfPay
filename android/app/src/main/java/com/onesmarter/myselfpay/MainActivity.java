@@ -1,6 +1,11 @@
 package com.onesmarter.myselfpay;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.widget.ImageView;
+import android.widget.ScrollView;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Color;
@@ -26,6 +31,11 @@ import android.widget.Toast;
 
 public class MainActivity extends Activity {
     private WebView web;
+    private ScrollView home;
+    private FrameLayout content;
+    private TextView title;
+    private Button homeTab, searchTab;
+    private boolean openSearch;
     private LinearLayout errorPanel;
     private ProgressBar progress;
     private boolean failed;
@@ -61,7 +71,59 @@ public class MainActivity extends Activity {
         errorPanel.addView(retry);
         root.addView(errorPanel, new FrameLayout.LayoutParams(-1, -1));
         errorPanel.setVisibility(View.GONE);
-        setContentView(root);
+        content = root;
+        LinearLayout shell = new LinearLayout(this);
+        shell.setOrientation(LinearLayout.VERTICAL);
+        shell.setBackgroundColor(Color.WHITE);
+        shell.setOnApplyWindowInsetsListener((v, insets) -> {
+            v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
+                insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
+            return insets;
+        });
+        root.setOnApplyWindowInsetsListener(null);
+        LinearLayout toolbar = new LinearLayout(this);
+        toolbar.setGravity(Gravity.CENTER_VERTICAL);
+        toolbar.setPadding(dp(8), dp(4), dp(8), dp(4));
+        Button back = action("‹", "Go back");
+        back.setOnClickListener(v -> onBackPressed());
+        toolbar.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        title = text("MySelfPay", 20, true);
+        toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        Button refresh = action("↻", "Refresh live information");
+        refresh.setOnClickListener(v -> { if(home.getVisibility()!=View.VISIBLE) web.reload(); });
+        toolbar.addView(refresh, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        shell.addView(toolbar);
+        home = createHome();
+        root.addView(home, new FrameLayout.LayoutParams(-1,-1));
+        shell.addView(root, new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout tabs = new LinearLayout(this);
+        tabs.setPadding(dp(12),dp(4),dp(12),dp(4));
+        homeTab = action("Home", "Home");
+        searchTab = action("Search", "Search imaging");
+        Button more = action("More", "About, privacy and support");
+        tabs.addView(homeTab,new LinearLayout.LayoutParams(0,dp(56),1));
+        tabs.addView(searchTab,new LinearLayout.LayoutParams(0,dp(56),1));
+        tabs.addView(more,new LinearLayout.LayoutParams(0,dp(56),1));
+        homeTab.setOnClickListener(v -> showHome());
+        searchTab.setOnClickListener(v -> showSearch());
+        more.setOnClickListener(v -> new AlertDialog.Builder(this).setTitle("MySelfPay")
+            .setItems(new String[]{"About MySelfPay","Contact support","Terms & Privacy","For imaging centers","End guest session"},(dialog,index)->{
+                if(index==4){
+                    new AlertDialog.Builder(this).setMessage("End your guest session?")
+                        .setPositiveButton("Sign out",(d,w)->{
+                            web.evaluateJavascript("(function(){var p=document.getElementById('profile');if(p&&p.textContent==='Sign out')p.click();})()",null);
+                            showHome();
+                        }).setNegativeButton("Cancel",null).show();
+                }else{
+                    String[] paths={"about","contact","privacy-terms","for-imaging-centers"};
+                    home.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);
+                    title.setText(new String[]{"About","Contact","Terms & Privacy","Imaging centers"}[index]);
+                    openSearch=false;web.loadUrl(UrlPolicy.HOME+paths[index]);
+                }
+            }).show());
+        shell.addView(tabs);
+        setContentView(shell);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -88,6 +150,7 @@ public class MainActivity extends Activity {
             @Override public void onPageFinished(WebView view, String url) {
                 progress.setVisibility(View.GONE);
                 if (!failed) errorPanel.setVisibility(View.GONE);
+                if (UrlPolicy.isInternal(url)) applyAppLayout();
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) showError();
@@ -101,6 +164,60 @@ public class MainActivity extends Activity {
             }
         });
         web.loadUrl(UrlPolicy.HOME);
+        showHome();
+    }
+    private int dp(int value){ return Math.round(value*getResources().getDisplayMetrics().density); }
+    private TextView text(String value,int size,boolean bold){
+        TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(Color.rgb(30,34,38));
+        if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        return t;
+    }
+    private Button action(String label,String description){
+        Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextSize(16);
+        b.setContentDescription(description);b.setMinWidth(0);b.setMinimumWidth(0);
+        b.setPadding(dp(8),0,dp(8),0);return b;
+    }
+    private ScrollView createHome(){
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(Color.rgb(246,246,245));
+        LinearLayout column=new LinearLayout(this);column.setOrientation(LinearLayout.VERTICAL);
+        column.setPadding(dp(24),dp(28),dp(24),dp(28));scroll.addView(column);
+        ImageView logo=new ImageView(this);logo.setImageResource(com.onesmarter.myselfpay.R.drawable.ic_launcher);
+        logo.setContentDescription("MySelfPay logo");column.addView(logo,new LinearLayout.LayoutParams(dp(76),dp(76)));
+        TextView heading=text("Your imaging.\nYour options.",32,true);
+        heading.setPadding(0,dp(24),0,dp(12));column.addView(heading);
+        TextView intro=text("Explore self-pay MRI and CT prices near you.",18,false);column.addView(intro);
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(20),dp(20),dp(20),dp(20));
+        GradientDrawable bg=new GradientDrawable();bg.setColor(Color.WHITE);bg.setCornerRadius(dp(20));card.setBackground(bg);
+        LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.topMargin=dp(28);column.addView(card,cp);
+        card.addView(text("Find imaging",23,true));
+        TextView detail=text("Choose your exam and location. Compare published prices and contact the facility.",16,false);
+        detail.setPadding(0,dp(12),0,dp(20));card.addView(detail);
+        Button start=action("Search MRI & CT","Search MRI and CT imaging");
+        start.setTextColor(Color.WHITE);start.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(176,27,35)));
+        start.setOnClickListener(v->showSearch());card.addView(start,new LinearLayout.LayoutParams(-1,dp(56)));
+        TextView note=text("Live directory • No account needed",14,true);note.setPadding(0,dp(24),0,dp(12));column.addView(note);
+        column.addView(text("Prices and availability are confirmed directly with the facility. Internet connection required.",14,false));
+        return scroll;
+    }
+    private void showHome(){
+        home.setVisibility(View.VISIBLE);web.setVisibility(View.INVISIBLE);
+        title.setText("MySelfPay");homeTab.setTextColor(Color.rgb(176,27,35));searchTab.setTextColor(Color.rgb(30,34,38));
+    }
+    private void showSearch(){
+        home.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);title.setText("Find imaging");
+        homeTab.setTextColor(Color.rgb(30,34,38));searchTab.setTextColor(Color.rgb(176,27,35));
+        openSearch=true;
+        if(web.getUrl()==null || !web.getUrl().equals(UrlPolicy.HOME))web.loadUrl(UrlPolicy.HOME);
+        else applyAppLayout();
+    }
+    private void applyAppLayout(){
+        String css="body>header,body>.site-footer{display:none!important} .shell{margin:12px auto!important;padding:0 12px!important} .info-page>.panel{border:0!important} .back-to-search{display:none!important} .welcome-intro,.welcome-steps,.welcome-paths{display:none!important} .grid{grid-template-columns:minmax(0,1fr)!important} .panel,.card{border-radius:18px!important} button,input,select{min-height:48px} .sticky{bottom:8px!important}";
+        web.evaluateJavascript("(function(){var s=document.getElementById('android-app-layout');if(!s){s=document.createElement('style');s.id='android-app-layout';document.head.appendChild(s);}s.textContent="+org.json.JSONObject.quote(css)+";})()",null);
+        if(openSearch){
+            openSearch=false;
+            web.evaluateJavascript("(function(){var tries=0;function enter(){var b=document.getElementById('welcomeBegin');if(b){b.click();return;}if(document.getElementById('searchForm'))return;if(++tries<40)setTimeout(enter,150);}enter();})()",null);
+        }
     }
     private boolean route(String url, boolean mainFrame) {
         if (UrlPolicy.isInternal(url)) return false;
@@ -118,7 +235,8 @@ public class MainActivity extends Activity {
         errorPanel.setVisibility(View.VISIBLE);
     }
     @Override public void onBackPressed() {
-        if (web.canGoBack()) web.goBack(); else super.onBackPressed();
+        if(home.getVisibility()==View.VISIBLE){super.onBackPressed();return;}
+        if(web.canGoBack())web.goBack();else showHome();
     }
     @Override protected void onDestroy() {
         web.stopLoading();

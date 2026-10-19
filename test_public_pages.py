@@ -7,14 +7,14 @@ from server import Handler
 
 class PublicPagesTests(unittest.TestCase):
     def test_pages_are_public_and_contact_links_are_present(self):
-        for slug in ('about','contact','privacy','terms','for-imaging-centers'):
+        for slug in ('about','contact','privacy','terms','privacy-terms','for-imaging-centers'):
             h=object.__new__(Handler);h.path='/'+slug;h.validate_origin=lambda:True
             h.database_path=lambda:self.fail('Public page must not access database')
             output=[];h.respond=lambda status,data,**kw:output.append((status,data,kw))
             with patch.object(core,'ROOT',Path(__file__).resolve().parent):h.route_selfpay_request('GET')
             self.assertEqual(output[0][0],200)
             page=output[0][1].decode()
-            self.assertIn('mailto:care@onesmarter.com',page)
+            self.assertIn('mailto:' + ('partners@onesmarter.com' if slug == 'for-imaging-centers' else 'care@onesmarter.com'),page)
             self.assertNotIn('src="/app.js"',page)
             self.assertNotIn('<button id="profile"',page)
 

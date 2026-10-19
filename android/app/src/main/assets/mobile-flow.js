@@ -2,6 +2,7 @@
   if (window.myselfpayFlow) return;
   window.myselfpayFlow = true;
   let editing = false;
+  let previousResults = false;
   let frame;
   function enhance() {
     const app = document.getElementById('app');
@@ -10,6 +11,8 @@
     const grid = app.querySelector('.grid');
     const section = grid && grid.querySelector(':scope > section');
     const hasResults = !!(section && section.querySelector('#sort'));
+    const enteringResults = hasResults && !previousResults;
+    previousResults = hasResults;
     app.classList.toggle('mobile-results', hasResults);
     app.classList.toggle('mobile-editing', hasResults && editing);
     app.classList.toggle('mobile-detail', !!document.getElementById('back'));
@@ -49,7 +52,7 @@
       };
       edit.setAttribute('aria-expanded', String(editing));
       grid.before(edit);
-      if (!editing) window.scrollTo(0, 0);
+      if (!editing && enteringResults) window.scrollTo(0, 0);
     }
     // Keep original prices, protocol wording and qualification notices intact.
     app.querySelectorAll('article.card').forEach(card => {

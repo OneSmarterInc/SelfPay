@@ -210,16 +210,16 @@ public class MainActivity extends Activity {
     private ScrollView createHome(){
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(Color.rgb(246,246,245));
         LinearLayout column=new LinearLayout(this);column.setOrientation(LinearLayout.VERTICAL);
-        column.setPadding(dp(24),dp(28),dp(24),dp(28));scroll.addView(column);
+        column.setPadding(dp(24),dp(24),dp(24),dp(24));scroll.addView(column);
         ImageView logo=new ImageView(this);logo.setImageResource(com.onesmarter.myselfpay.R.drawable.ic_launcher);
-        logo.setContentDescription("MySelfPay logo");column.addView(logo,new LinearLayout.LayoutParams(dp(76),dp(76)));
-        TextView heading=text("Find self-pay MRI and CT near you.",32,true);
+        logo.setContentDescription("MySelfPay logo");column.addView(logo,new LinearLayout.LayoutParams(dp(56),dp(56)));
+        TextView heading=text("Find self-pay MRI and CT near you.",26,true);
         heading.setPadding(0,dp(24),0,dp(12));column.addView(heading);
         TextView intro=text("Compare prices. Contact the facility.",16,false);column.addView(intro);
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(20),dp(20),dp(20),dp(20));
-        GradientDrawable bg=new GradientDrawable();bg.setColor(Color.WHITE);bg.setCornerRadius(dp(20));card.setBackground(bg);card.setElevation(dp(3));
-        LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.topMargin=dp(28);column.addView(card,cp);
+        GradientDrawable bg=new GradientDrawable();bg.setColor(Color.WHITE);bg.setCornerRadius(dp(20));card.setBackground(bg);card.setElevation(0);
+        LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.topMargin=dp(20);column.addView(card,cp);
         Button start=action("Sign in as guest","Sign in as guest");
         styleButton(start,Color.rgb(176,27,35),Color.WHITE);start.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
         start.setOnClickListener(v->showSearch());card.addView(start,new LinearLayout.LayoutParams(-1,dp(56)));
@@ -259,12 +259,22 @@ public class MainActivity extends Activity {
     private void applyAppLayout(){
         String css="body>header,.site-footer,body>footer,#scan{display:none!important} #app>.row:first-child:has(#scan){display:none!important} .shell{margin:12px auto!important;padding:0 12px!important} .info-page>.panel{border:0!important} .back-to-search{display:none!important} .welcome-intro,.welcome-steps,.welcome-paths{display:none!important} .grid{grid-template-columns:minmax(0,1fr)!important} .panel,.card{border-radius:18px!important} button,input,select{min-height:48px} .sticky{bottom:8px!important} body{background:#f5f6f8!important;font-size:15px!important} #app> .row:first-child h1,#app> .row:first-child .eyebrow,#app> .row:first-child .muted,#app>.row.small{display:none!important} .shell{padding:0 14px!important} .panel{padding:16px!important;border:0!important;border-radius:16px!important;box-shadow:0 2px 8px #17212b08!important} .card{padding:16px!important;border:1px solid #e6e8ec!important;border-radius:16px!important;box-shadow:0 3px 12px #17212b0a!important} h2{font-size:20px!important} h3{font-size:18px!important} .field{margin-bottom:12px!important} .field>label{font-size:13px!important;font-weight:600!important;margin-bottom:5px!important} input:not([type=checkbox]),select{font-size:16px!important;padding:10px 12px!important;border:1px solid #e0e3e8!important;background:#f8f9fb!important;border-radius:12px!important;min-height:48px!important} input[type=checkbox]{min-height:0!important;width:20px!important;height:20px!important} button{font-size:14px!important;border-radius:12px!important} button.primary{background:#b01b23!important;border:0!important;color:white!important} .tabs{display:flex!important;flex-wrap:wrap!important;overflow-x:visible!important;gap:6px!important;padding-bottom:6px!important}.tabs button{white-space:normal!important;flex:1 1 120px!important;line-height:1.3!important} .tabs .active{background:#b01b23!important;color:white!important}.price{font-size:25px!important} .facts{gap:8px!important}.fact{font-size:13px!important} .app-intro>h2,.app-intro>p,#sampleSearch{display:none!important}.app-intro{padding:8px 0!important;background:transparent!important;box-shadow:none!important}.app-intro .actions{margin:0!important}.app-coverage{padding:8px 12px!important;background:transparent!important;box-shadow:none!important;font-size:12px!important;color:#666!important}.app-coverage p{margin:0!important} .app-extra{margin:12px 0!important;padding:12px!important;background:#f8f9fb!important;border-radius:12px!important}.app-extra>summary{font-size:14px!important;font-weight:600!important}.app-extra[open]>summary{margin-bottom:12px!important}";
         web.evaluateJavascript("(function(){var s=document.getElementById('android-app-layout');if(!s){s=document.createElement('style');s.id='android-app-layout';document.head.appendChild(s);}s.textContent="+org.json.JSONObject.quote(css)+";})()",null);
-        web.evaluateJavascript("(function(){function compact(){var sample=document.getElementById('sampleSearch');if(sample){var panel=sample.closest('.panel');if(panel){panel.classList.add('app-intro');if(panel.nextElementSibling)panel.nextElementSibling.classList.add('app-coverage');}}var form=document.getElementById('searchForm');if(form&&!form.querySelector('.app-extra')){var fields=['radius','budget','type'].map(function(id){var el=document.getElementById(id);return el&&el.closest('.field');}).filter(Boolean);if(fields.length){var details=document.createElement('details');details.className='app-extra';var summary=document.createElement('summary');summary.textContent='More filters';details.appendChild(summary);form.insertBefore(details,form.querySelector('button.primary'));fields.forEach(function(field){details.appendChild(field);});}}}compact();if(!window.myselfpayAppObserver){window.myselfpayAppObserver=new MutationObserver(compact);window.myselfpayAppObserver.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});}})()",null);
+        web.evaluateJavascript("(function(){var s=document.getElementById('mobile-flow-style');if(!s){s=document.createElement('style');s.id='mobile-flow-style';document.head.appendChild(s);}s.textContent="+org.json.JSONObject.quote(asset("mobile-flow.css"))+";})()",null);
+        web.evaluateJavascript(asset("mobile-flow.js"),null);
         if(openSearch){
             openSearch=false;
             web.evaluateJavascript("(function(){var tries=0;function enter(){var b=document.getElementById('welcomeBegin');if(b){b.click();return;}if(document.getElementById('searchForm'))return;if(++tries<40)setTimeout(enter,150);}enter();})()",null);
         }
         revealStyledPage();
+    }
+    private String asset(String name) {
+        try (java.io.InputStream stream = getAssets().open(name);
+             java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int count;
+            while ((count = stream.read(buffer)) != -1) bytes.write(buffer, 0, count);
+            return bytes.toString("UTF-8");
+        } catch (java.io.IOException error) { throw new IllegalStateException(name, error); }
     }
     private boolean route(String url, boolean mainFrame) {
         if (UrlPolicy.isInternal(url)) { if(mainFrame)beginPageTransition();return false; }
@@ -283,7 +293,10 @@ public class MainActivity extends Activity {
     }
     @Override public void onBackPressed() {
         if(home.getVisibility()==View.VISIBLE){super.onBackPressed();return;}
-        if(web.canGoBack()){beginPageTransition();web.goBack();}else showHome();
+        web.evaluateJavascript("(function(){var modal=document.querySelector('dialog[open]');if(modal){modal.close();return true;}var back=document.getElementById('back');if(back){back.click();return true;}var app=document.getElementById('app');if(app&&app.classList.contains('mobile-editing')){document.getElementById('mobileEditSearch').click();return true;}return false;})()",handled->{
+            if(destroyed || "true".equals(handled))return;
+            if(web.canGoBack()){beginPageTransition();web.goBack();}else showHome();
+        });
     }
     @Override protected void onDestroy() {
         destroyed=true;
@@ -292,3 +305,4 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 }
+

@@ -41,6 +41,8 @@ body:has(.sticky) #app{padding-bottom:100px!important}
 .mobile-detail .detailgrid{gap:12px!important;margin-top:12px!important}
 .mobile-detail #back{position:sticky;top:0;z-index:5;width:100%;text-align:left}
 .mobile-detail .checklist{padding-left:20px}
+.mobile-detail section>.card-actions{display:flex!important;flex-wrap:wrap;gap:6px;margin:12px 0}
+.mobile-detail section>.card-actions a{flex:1 1 auto;justify-content:center;font-size:13px!important;padding:8px!important}
 dialog{width:100vw!important;max-width:100vw!important;height:100dvh;max-height:100dvh!important;border:0!important;border-radius:0!important;margin:0!important}
 .modal-body{padding:16px!important}.modal-header{padding:8px 16px!important}
 .app-intro:has(#sampleSearch){display:none!important}

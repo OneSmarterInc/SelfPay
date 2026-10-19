@@ -75,6 +75,25 @@
         if (source) extra.appendChild(source);
       }
     });
+    const detailPanel = app.querySelector('.detailgrid>section');
+    if (detailPanel && !detailPanel.dataset.mobileReady) {
+      detailPanel.dataset.mobileReady = 'true';
+      const contacts = app.querySelector('.detailgrid>aside .card-actions');
+      const scope = detailPanel.querySelector('.price')?.nextElementSibling;
+      if (contacts && scope) scope.after(contacts);
+      const checklist = detailPanel.querySelector('.checklist');
+      if (checklist) {
+        const heading = checklist.previousElementSibling;
+        const questions = document.createElement('details');
+        questions.className = 'mobile-card-more';
+        const summary = document.createElement('summary');
+        summary.textContent = heading?.textContent || 'Questions to ask the facility';
+        questions.appendChild(summary);
+        checklist.before(questions);
+        questions.appendChild(checklist);
+        if (heading?.tagName === 'H2') heading.remove();
+      }
+    }
     const sample = document.getElementById('sampleSearch');
     if (sample) {
       const panel = sample.closest('.panel');

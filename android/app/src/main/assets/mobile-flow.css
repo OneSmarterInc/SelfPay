@@ -7,6 +7,7 @@ body{font-size:15px!important;line-height:1.45}
 .grid>.stack{gap:0!important}
 .mobile-search-panel{padding:16px!important}
 .mobile-search-panel>details>summary{display:none}
+.mobile-agent .mobile-search-panel>details>summary{display:block}
 .mobile-search-panel>details>p{margin:0 0 16px!important;font-size:13px!important}
 .field{gap:4px!important;margin-bottom:14px!important}
 .field>label{font-size:13px!important;margin:0!important}

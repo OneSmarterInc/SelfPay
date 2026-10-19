@@ -11,6 +11,8 @@
     const grid = app.querySelector('.grid');
     const section = grid && grid.querySelector(':scope > section');
     const hasResults = !!(section && section.querySelector('#sort'));
+    const agentMode = !!document.getElementById('agent')?.classList.contains('active');
+    app.classList.toggle('mobile-agent', agentMode);
     const enteringResults = hasResults && !previousResults;
     previousResults = hasResults;
     app.classList.toggle('mobile-results', hasResults);
@@ -18,7 +20,7 @@
     app.classList.toggle('mobile-detail', !!document.getElementById('back'));
     if (form) {
       const details = form.closest('details');
-      if (details) details.open = true;
+      if (details && (!agentMode || editing)) details.open = true;
       const panel = form.closest('aside');
       if (panel) panel.classList.add('mobile-search-panel');
       if (!form.querySelector('.app-extra')) {
@@ -46,6 +48,8 @@
         app.classList.toggle('mobile-editing', editing);
         edit.setAttribute('aria-expanded', String(editing));
         if (editing) {
+          const details = form?.closest('details');
+          if (details) details.open = true;
           form?.scrollIntoView({ block: 'start' });
           document.getElementById('mod')?.focus({ preventScroll: true });
         }

@@ -34,7 +34,6 @@ public class MainActivity extends Activity {
     private ScrollView home;
     private FrameLayout content;
     private TextView title;
-    private Button homeTab, searchTab, moreTab;
     private boolean openSearch;
     private LinearLayout errorPanel;
     private ProgressBar progress;
@@ -84,9 +83,10 @@ public class MainActivity extends Activity {
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.setPadding(dp(8), dp(4), dp(8), dp(4));
-        Button back = action("‹", "Go back");
-        back.setOnClickListener(v -> onBackPressed());
-        toolbar.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        Button menu = action("☰", "Open navigation menu");
+        menu.setTextSize(26);
+        menu.setOnClickListener(v -> showMenu());
+        toolbar.addView(menu, new LinearLayout.LayoutParams(dp(48), dp(48)));
         title = text("MySelfPay", 20, true);
         toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
         title.setGravity(Gravity.CENTER_VERTICAL);
@@ -97,34 +97,6 @@ public class MainActivity extends Activity {
         home = createHome();
         root.addView(home, new FrameLayout.LayoutParams(-1,-1));
         shell.addView(root, new LinearLayout.LayoutParams(-1,0,1));
-        LinearLayout tabs = new LinearLayout(this);
-        tabs.setPadding(dp(12),dp(4),dp(12),dp(4));
-        homeTab = action("Home", "Home");
-        searchTab = action("Search", "Search imaging");
-        Button more = action("More", "About, privacy and support");
-        moreTab = more;
-        tabs.setElevation(dp(8));
-        tabs.addView(homeTab,new LinearLayout.LayoutParams(0,dp(56),1));
-        tabs.addView(searchTab,new LinearLayout.LayoutParams(0,dp(56),1));
-        tabs.addView(more,new LinearLayout.LayoutParams(0,dp(56),1));
-        homeTab.setOnClickListener(v -> showHome());
-        searchTab.setOnClickListener(v -> showSearch());
-        more.setOnClickListener(v -> new AlertDialog.Builder(this).setTitle("MySelfPay")
-            .setItems(new String[]{"About","Contact","Terms & Privacy","For imaging centers","Sign out"},(dialog,index)->{
-                if(index==4){
-                    new AlertDialog.Builder(this).setMessage("Sign out?")
-                        .setPositiveButton("Sign out",(d,w)->{
-                            web.evaluateJavascript("(function(){var p=document.getElementById('profile');if(p&&p.textContent==='Sign out')p.click();})()",null);
-                            showHome();
-                        }).setNegativeButton("Cancel",null).show();
-                }else{
-                    String[] paths={"about","contact","privacy-terms","for-imaging-centers"};
-                    home.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);
-                    title.setText(new String[]{"About","Contact","Terms & Privacy","For imaging centers"}[index]);
-                    selectTab(moreTab);openSearch=false;web.loadUrl(UrlPolicy.HOME+paths[index]);
-                }
-            }).show());
-        shell.addView(tabs);
         setContentView(shell);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -186,14 +158,51 @@ public class MainActivity extends Activity {
             android.content.res.ColorStateList.valueOf(0x22000000),shape,null));
         button.setTextColor(foreground);
     }
-    private void selectTab(Button selected){
-        for(Button tab:new Button[]{homeTab,searchTab,moreTab}){
-            boolean active=tab==selected;
-            styleButton(tab,active?Color.rgb(253,234,235):Color.TRANSPARENT,
-                active?Color.rgb(176,27,35):Color.rgb(80,85,90));
-            tab.setTypeface(Typeface.DEFAULT,active?Typeface.BOLD:Typeface.NORMAL);
-            tab.setSelected(active);
+    private void showMenu(){
+        android.app.Dialog drawer=new android.app.Dialog(this);
+        ScrollView scroll=new ScrollView(this);
+        LinearLayout items=new LinearLayout(this);items.setOrientation(LinearLayout.VERTICAL);
+        items.setPadding(dp(16),dp(24),dp(16),dp(24));items.setBackgroundColor(Color.WHITE);
+        scroll.addView(items);
+        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(text("MySelfPay",22,true),new LinearLayout.LayoutParams(0,-2,1));
+        Button close=action("×","Close navigation menu");close.setTextSize(26);
+        close.setOnClickListener(v->drawer.dismiss());
+        header.addView(close,new LinearLayout.LayoutParams(dp(48),dp(48)));items.addView(header);
+        String[] labels={"Home","Search","About","Contact","Terms & Privacy","For imaging centers","Sign out"};
+        for(int i=0;i<labels.length;i++){
+            final int index=i;
+            Button item=action(labels[i],labels[i]);item.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams row=new LinearLayout.LayoutParams(-1,dp(56));row.topMargin=dp(6);
+            items.addView(item,row);
+            item.setOnClickListener(v->{
+                drawer.dismiss();
+                if(index==0){showHome();return;}
+                if(index==1){showSearch();return;}
+                if(index==6){
+                    new AlertDialog.Builder(this).setMessage("Sign out?")
+                        .setPositiveButton("Sign out",(d,w)->{
+                            web.evaluateJavascript("(function(){var p=document.getElementById('profile');if(p&&p.textContent==='Sign out')p.click();})()",null);
+                            showHome();
+                        }).setNegativeButton("Cancel",null).show();
+                    return;
+                }
+                String[] paths={"about","contact","privacy-terms","for-imaging-centers"};
+                home.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);
+                title.setText(labels[index]);openSearch=false;web.loadUrl(UrlPolicy.HOME+paths[index-2]);
+            });
         }
+        drawer.setContentView(scroll);
+        android.view.Window window=drawer.getWindow();
+        if(window!=null){
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+            window.setGravity(Gravity.START|Gravity.TOP);
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            android.view.WindowManager.LayoutParams attributes=window.getAttributes();
+            attributes.dimAmount=0.35f;window.setAttributes(attributes);
+        }
+        drawer.show();
+        if(window!=null)window.setLayout(Math.min(dp(320),getResources().getDisplayMetrics().widthPixels-dp(32)),-1);
     }
     private ScrollView createHome(){
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(Color.rgb(246,246,245));
@@ -203,28 +212,24 @@ public class MainActivity extends Activity {
         logo.setContentDescription("MySelfPay logo");column.addView(logo,new LinearLayout.LayoutParams(dp(76),dp(76)));
         TextView heading=text("Find self-pay MRI and CT near you.",32,true);
         heading.setPadding(0,dp(24),0,dp(12));column.addView(heading);
-        TextView intro=text("Compare published prices, see what’s included, and call the facility in one tap.",18,false);column.addView(intro);
+        TextView intro=text("Compare prices. Contact the facility.",16,false);column.addView(intro);
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(20),dp(20),dp(20),dp(20));
         GradientDrawable bg=new GradientDrawable();bg.setColor(Color.WHITE);bg.setCornerRadius(dp(20));card.setBackground(bg);card.setElevation(dp(3));
         LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.topMargin=dp(28);column.addView(card,cp);
-        card.addView(text("Find imaging options",23,true));
-        TextView detail=text("Choose your exam and location. Compare published prices and contact the facility.",16,false);
-        detail.setPadding(0,dp(12),0,dp(20));card.addView(detail);
         Button start=action("Sign in as guest","Sign in as guest");
         styleButton(start,Color.rgb(176,27,35),Color.WHITE);start.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
         start.setOnClickListener(v->showSearch());card.addView(start,new LinearLayout.LayoutParams(-1,dp(56)));
-        TextView note=text("Live directory • No account needed",14,true);note.setPadding(0,dp(24),0,dp(12));column.addView(note);
-        column.addView(text("Prices and availability are confirmed directly with the facility. Internet connection required.",14,false));
+        TextView note=text("No account needed",14,true);note.setPadding(0,dp(24),0,dp(12));column.addView(note);
+        column.addView(text("Confirm prices with the facility.",14,false));
         return scroll;
     }
     private void showHome(){
         home.setVisibility(View.VISIBLE);web.setVisibility(View.INVISIBLE);
-        title.setText("MySelfPay");selectTab(homeTab);
+        title.setText("MySelfPay");
     }
     private void showSearch(){
         home.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);title.setText("Find imaging options");
-        selectTab(searchTab);
         openSearch=true;
         if(web.getUrl()==null || !web.getUrl().equals(UrlPolicy.HOME))web.loadUrl(UrlPolicy.HOME);
         else applyAppLayout();

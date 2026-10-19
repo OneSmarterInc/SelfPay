@@ -85,6 +85,15 @@
       const close=document.createElement('button');close.id='mobileCloseChat';close.type='button';close.textContent='Back to results';
       close.onclick=window.myselfpayCloseOverlay;section.prepend(close);
     }
+    const chatPanel=agentMode && section?.querySelector('.panel:has(#chatForm)');
+    if(chatPanel && !chatPanel.dataset.mobileChatReady){
+      chatPanel.dataset.mobileChatReady='true';
+      const thread=document.getElementById('chat');const composer=document.getElementById('chatForm');
+      const options=document.createElement('details');options.className='mobile-chat-options';
+      options.innerHTML='<summary>Chat options & limits</summary>';
+      while(thread?.nextElementSibling && thread.nextElementSibling!==composer)options.appendChild(thread.nextElementSibling);
+      composer?.after(options);
+    }
     if (hasResults && enteringResults && !editing && !agentMode) window.scrollTo(0, 0);
     // Keep original prices, protocol wording and qualification notices intact.
     app.querySelectorAll('article.card').forEach(card => {

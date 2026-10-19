@@ -93,3 +93,16 @@ body:has(dialog[open]) #mobileChatButton,.mobile-agent #mobileChatButton{display
 .mobile-results article.card>strong{font-size:14px}
 #mobileMoreResults{width:100%;min-height:48px!important;background:white;margin-top:8px}
 .mobile-results article.mobile-contact-only>.mobile-card-more{display:block!important}
+.mobile-agent .panel:has(#chatForm){padding:14px!important}
+.mobile-agent .panel:has(#chatForm)>.row h3{font-size:18px!important}
+.mobile-agent .panel:has(#chatForm)>p{font-size:12px!important;line-height:1.45}
+.mobile-agent .panel:has(#chatForm)>.row .badge{font-size:10px!important}
+.mobile-agent .chat{height:43dvh;min-height:180px;margin-top:12px}
+.mobile-agent #chatForm{display:flex;flex-wrap:nowrap;gap:8px;margin-top:10px!important;padding:8px 0!important}
+.mobile-agent #chatForm input{min-width:0!important;flex:1}
+.mobile-agent #chatForm button{flex:none;min-height:48px!important;padding:8px 14px!important}
+.mobile-agent #voice{display:none!important}
+.mobile-chat-options{border-top:1px solid #eceef1;font-size:12px}
+.mobile-chat-options summary{font-size:12px;padding:12px 0}
+.mobile-chat-options .actions{margin-top:0;gap:6px}
+.mobile-chat-options button{font-size:12px!important}

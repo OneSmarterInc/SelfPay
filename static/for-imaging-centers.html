@@ -54,6 +54,39 @@ img{max-width:100%}
  .info-page .actions{align-items:stretch}.info-page .actions a.button{width:100%;justify-content:center}
  .footer-brand{flex-wrap:wrap}
 }
+
+/* Flexible layouts for compact phones, tablets and wide displays. */
+html{ -webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{min-width:0}
+header .brand,header nav,.footer-brand,.footer-links{max-width:100%}
+header nav a,header nav button{overflow-wrap:anywhere}
+.info-page h1{font-size:clamp(28px,4vw,40px);line-height:1.2}
+.info-page h2{line-height:1.35}
+.info-page li{line-height:1.65;margin:10px 0}
+.info-page ol,.info-page ul{padding-left:24px}
+.info-page a{overflow-wrap:anywhere}
+.card-actions a{max-width:100%;overflow-wrap:anywhere}
+dialog .modal-body>*{max-width:100%}
+.facility-map iframe{display:block;max-width:100%}
+@media(max-width:540px){
+ .row.between{align-items:flex-start}
+ .row.between>select,.row.between>input{width:100%}
+ .card-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+ .card-actions a{justify-content:center}
+ .compare{grid-template-columns:minmax(0,1fr)}
+ .sticky{padding:12px}.sticky button{margin-left:0}
+ .message.user{margin-left:0}
+ .footer-links{width:100%;gap:4px 16px}
+ .info-page{padding:0 12px}.info-page .panel{padding:20px}
+}
+@media(max-width:360px){
+ header{padding:12px}.brand-logo{width:36px;height:36px}.brand-name{font-size:22px}
+ .brand-by{font-size:11px}nav{gap:4px}
+ .shell{padding:0 10px}.panel,.card,.info-page .panel{padding:16px}
+ .tabs button{flex-basis:100%}
+ h1{font-size:26px}.welcome-intro h1{font-size:30px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}}
 </style></head><body><header><a class="brand" id="brandHome" href="/" aria-label="MySelfPay by One Smarter, Inc. homepage"><img class="brand-logo" src="/logo.png" alt="" width="44" height="44"><span class="brand-text"><span class="brand-name">MySelf<span>Pay</span></span><span class="brand-by">by One Smarter, Inc.</span></span></a><nav><a href="/for-imaging-centers">For imaging centers</a><a class="button" href="/">Start searching</a></nav></header><main class="shell info-page"><article class="panel"><h1>For imaging centers</h1><p class="welcome-lead">Self-pay patients compare prices before they call. MySelfPay shows them yours.</p><h2>What patients see today</h2><p>Each of your centers with its distance, phone, website and directions, plus your published self-pay price, or “Price on request.”</p><h2>Show your price</h2><p>Send us your self-pay prices for your most common exams, what each includes, and how long it holds. We publish them, and patients see your number instead of a phone call.</p><h2>Coming next</h2><p>Open times and booking requests that your staff or scheduling system confirms. Patients pay on your own payment page.</p><p><strong>Free during the pilot.</strong></p><div class="actions"><a class="button primary" href="mailto:partners@onesmarter.com?subject=MySelfPay%20for%20our%20imaging%20center">Talk to us</a><a class="button" href="mailto:partners@onesmarter.com?subject=Correct%20our%20MySelfPay%20listing">Correct your listing</a></div><p class="actions"><a href="/">Back to MySelfPay</a></p></article></main><footer class="site-footer"><span class="footer-brand"><img src="/logo.png" alt="" width="28" height="28">MySelfPay by One Smarter, Inc. · Dayton, Ohio</span><span class="footer-links"><a href="/about">About</a><a href="/contact">Contact</a><a href="/privacy-terms">Terms &amp; Privacy</a></span></footer><dialog id="modal"></dialog><div id="toast" class="toast hidden" role="status"></div><script type="module" src="/pwa.js"></script></body></html>
 
 

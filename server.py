@@ -38,7 +38,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options','nosniff')
         self.send_header('Referrer-Policy','no-referrer')
         self.send_header('X-Frame-Options','DENY')
-        self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+        self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src https://www.openstreetmap.org; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         for name,value in self.extra_headers():self.send_header(name,value)
         if cookie:self.send_header('Set-Cookie',cookie)
         self.end_headers();self.wfile.write(body)
@@ -84,6 +84,18 @@ class Handler(BaseHTTPRequestHandler):
             '/':('index.html','text/html'),
             '/logo.png':('logo.png','image/png'),
             '/fonts/public-sans.woff2':('fonts/public-sans.woff2','font/woff2'),
+            '/for-imaging-centers':('for-imaging-centers.html','text/html'),
+            '/for-imaging-centers/':('for-imaging-centers.html','text/html'),
+            '/about':('about.html','text/html'),
+            '/about/':('about.html','text/html'),
+            '/contact':('contact.html','text/html'),
+            '/contact/':('contact.html','text/html'),
+            '/privacy-terms':('privacy-terms.html','text/html'),
+            '/privacy-terms/':('privacy-terms.html','text/html'),
+            '/privacy':('privacy-terms.html','text/html'),
+            '/privacy/':('privacy-terms.html','text/html'),
+            '/terms':('privacy-terms.html','text/html'),
+            '/terms/':('privacy-terms.html','text/html'),
             '/app.js':('app.js','text/javascript'),
             '/pwa.js':('pwa.js','text/javascript'),
             '/sw.js':('sw.js','text/javascript'),
@@ -195,5 +207,6 @@ if __name__=='__main__':
     try:server.serve_forever()
     except KeyboardInterrupt:pass
     finally:server.server_close()
+
 
 

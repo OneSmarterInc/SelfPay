@@ -38,6 +38,8 @@ public class MainActivity extends Activity {
     private LinearLayout errorPanel;
     private ProgressBar progress;
     private boolean failed;
+    private long layoutGeneration;
+    private boolean destroyed;
     private String retryUrl = UrlPolicy.HOME;
 
     @Override public void onCreate(Bundle state) {
@@ -50,6 +52,7 @@ public class MainActivity extends Activity {
             return insets;
         });
         web = new WebView(this);
+        web.setAlpha(0f);
         root.addView(web, new FrameLayout.LayoutParams(-1, -1));
         progress = new ProgressBar(this);
         FrameLayout.LayoutParams spinner = new FrameLayout.LayoutParams(96, 96, Gravity.CENTER);
@@ -91,7 +94,7 @@ public class MainActivity extends Activity {
         toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
         title.setGravity(Gravity.CENTER_VERTICAL);
         Button refresh = action("↻", "Refresh live information");
-        refresh.setOnClickListener(v -> { if(home.getVisibility()!=View.VISIBLE) web.reload(); });
+        refresh.setOnClickListener(v -> { if(home.getVisibility()!=View.VISIBLE) { beginPageTransition();web.reload(); } });
         toolbar.addView(refresh, new LinearLayout.LayoutParams(dp(48), dp(48)));
         shell.addView(toolbar);
         home = createHome();
@@ -116,13 +119,13 @@ public class MainActivity extends Activity {
                 return route(url, true);
             }
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) {
+                beginPageTransition();
                 failed = false;
                 if (UrlPolicy.isInternal(url)) retryUrl = url;
                 errorPanel.setVisibility(View.GONE);
                 progress.setVisibility(View.VISIBLE);
             }
             @Override public void onPageFinished(WebView view, String url) {
-                progress.setVisibility(View.GONE);
                 if (!failed) errorPanel.setVisibility(View.GONE);
                 if (UrlPolicy.isInternal(url)) applyAppLayout();
             }
@@ -188,7 +191,7 @@ public class MainActivity extends Activity {
                     return;
                 }
                 String[] paths={"about","contact","privacy-terms","for-imaging-centers"};
-                home.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);
+                beginPageTransition();home.setVisibility(View.GONE);web.setVisibility(View.VISIBLE);
                 title.setText(labels[index]);openSearch=false;web.loadUrl(UrlPolicy.HOME+paths[index-2]);
             });
         }
@@ -226,6 +229,7 @@ public class MainActivity extends Activity {
     }
     private void showHome(){
         home.setVisibility(View.VISIBLE);web.setVisibility(View.INVISIBLE);
+        progress.setVisibility(View.GONE);
         title.setText("MySelfPay");
     }
     private void showSearch(){
@@ -234,17 +238,36 @@ public class MainActivity extends Activity {
         if(web.getUrl()==null || !web.getUrl().equals(UrlPolicy.HOME))web.loadUrl(UrlPolicy.HOME);
         else applyAppLayout();
     }
+    private void beginPageTransition(){
+        layoutGeneration++;
+        web.setAlpha(0f);
+        progress.setVisibility(View.VISIBLE);
+    }
+    private void revealStyledPage(){
+        final long generation=layoutGeneration;
+        web.evaluateJavascript("!!document.getElementById('android-app-layout')",ready->{
+            if(destroyed || failed || generation!=layoutGeneration || !"true".equals(ready))return;
+            web.postVisualStateCallback(generation,new WebView.VisualStateCallback(){
+                @Override public void onComplete(long requestId){
+                    if(destroyed || failed || requestId!=layoutGeneration)return;
+                    web.setAlpha(1f);
+                    progress.setVisibility(View.GONE);
+                }
+            });
+        });
+    }
     private void applyAppLayout(){
-        String css="body>header,body>.site-footer{display:none!important} .shell{margin:12px auto!important;padding:0 12px!important} .info-page>.panel{border:0!important} .back-to-search{display:none!important} .welcome-intro,.welcome-steps,.welcome-paths{display:none!important} .grid{grid-template-columns:minmax(0,1fr)!important} .panel,.card{border-radius:18px!important} button,input,select{min-height:48px} .sticky{bottom:8px!important} body{background:#f5f6f8!important;font-size:15px!important} #app> .row:first-child h1,#app> .row:first-child .eyebrow,#app> .row:first-child .muted,#app>.row.small{display:none!important} .shell{padding:0 14px!important} .panel{padding:16px!important;border:0!important;border-radius:16px!important;box-shadow:0 2px 8px #17212b08!important} .card{padding:16px!important;border:1px solid #e6e8ec!important;border-radius:16px!important;box-shadow:0 3px 12px #17212b0a!important} h2{font-size:20px!important} h3{font-size:18px!important} .field{margin-bottom:12px!important} .field>label{font-size:13px!important;font-weight:600!important;margin-bottom:5px!important} input:not([type=checkbox]),select{font-size:16px!important;padding:10px 12px!important;border:1px solid #e0e3e8!important;background:#f8f9fb!important;border-radius:12px!important;min-height:48px!important} input[type=checkbox]{min-height:0!important;width:20px!important;height:20px!important} button{font-size:14px!important;border-radius:12px!important} button.primary{background:#b01b23!important;border:0!important;color:white!important} .tabs{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto!important;gap:6px!important;padding-bottom:6px!important}.tabs button{white-space:nowrap!important;flex:0 0 auto!important} .tabs .active{background:#b01b23!important;color:white!important}.price{font-size:25px!important} .facts{gap:8px!important}.fact{font-size:13px!important} .app-intro>h2,.app-intro>p,#sampleSearch{display:none!important}.app-intro{padding:8px 0!important;background:transparent!important;box-shadow:none!important}.app-intro .actions{margin:0!important}.app-coverage{padding:8px 12px!important;background:transparent!important;box-shadow:none!important;font-size:12px!important;color:#666!important}.app-coverage p{margin:0!important} .app-extra{margin:12px 0!important;padding:12px!important;background:#f8f9fb!important;border-radius:12px!important}.app-extra>summary{font-size:14px!important;font-weight:600!important}.app-extra[open]>summary{margin-bottom:12px!important}";
+        String css="body>header,.site-footer,body>footer,#scan{display:none!important} #app>.row:first-child:has(#scan){display:none!important} .shell{margin:12px auto!important;padding:0 12px!important} .info-page>.panel{border:0!important} .back-to-search{display:none!important} .welcome-intro,.welcome-steps,.welcome-paths{display:none!important} .grid{grid-template-columns:minmax(0,1fr)!important} .panel,.card{border-radius:18px!important} button,input,select{min-height:48px} .sticky{bottom:8px!important} body{background:#f5f6f8!important;font-size:15px!important} #app> .row:first-child h1,#app> .row:first-child .eyebrow,#app> .row:first-child .muted,#app>.row.small{display:none!important} .shell{padding:0 14px!important} .panel{padding:16px!important;border:0!important;border-radius:16px!important;box-shadow:0 2px 8px #17212b08!important} .card{padding:16px!important;border:1px solid #e6e8ec!important;border-radius:16px!important;box-shadow:0 3px 12px #17212b0a!important} h2{font-size:20px!important} h3{font-size:18px!important} .field{margin-bottom:12px!important} .field>label{font-size:13px!important;font-weight:600!important;margin-bottom:5px!important} input:not([type=checkbox]),select{font-size:16px!important;padding:10px 12px!important;border:1px solid #e0e3e8!important;background:#f8f9fb!important;border-radius:12px!important;min-height:48px!important} input[type=checkbox]{min-height:0!important;width:20px!important;height:20px!important} button{font-size:14px!important;border-radius:12px!important} button.primary{background:#b01b23!important;border:0!important;color:white!important} .tabs{display:flex!important;flex-wrap:wrap!important;overflow-x:visible!important;gap:6px!important;padding-bottom:6px!important}.tabs button{white-space:normal!important;flex:1 1 120px!important;line-height:1.3!important} .tabs .active{background:#b01b23!important;color:white!important}.price{font-size:25px!important} .facts{gap:8px!important}.fact{font-size:13px!important} .app-intro>h2,.app-intro>p,#sampleSearch{display:none!important}.app-intro{padding:8px 0!important;background:transparent!important;box-shadow:none!important}.app-intro .actions{margin:0!important}.app-coverage{padding:8px 12px!important;background:transparent!important;box-shadow:none!important;font-size:12px!important;color:#666!important}.app-coverage p{margin:0!important} .app-extra{margin:12px 0!important;padding:12px!important;background:#f8f9fb!important;border-radius:12px!important}.app-extra>summary{font-size:14px!important;font-weight:600!important}.app-extra[open]>summary{margin-bottom:12px!important}";
         web.evaluateJavascript("(function(){var s=document.getElementById('android-app-layout');if(!s){s=document.createElement('style');s.id='android-app-layout';document.head.appendChild(s);}s.textContent="+org.json.JSONObject.quote(css)+";})()",null);
         web.evaluateJavascript("(function(){function compact(){var sample=document.getElementById('sampleSearch');if(sample){var panel=sample.closest('.panel');if(panel){panel.classList.add('app-intro');if(panel.nextElementSibling)panel.nextElementSibling.classList.add('app-coverage');}}var form=document.getElementById('searchForm');if(form&&!form.querySelector('.app-extra')){var fields=['radius','budget','type'].map(function(id){var el=document.getElementById(id);return el&&el.closest('.field');}).filter(Boolean);if(fields.length){var details=document.createElement('details');details.className='app-extra';var summary=document.createElement('summary');summary.textContent='More filters';details.appendChild(summary);form.insertBefore(details,form.querySelector('button.primary'));fields.forEach(function(field){details.appendChild(field);});}}}compact();if(!window.myselfpayAppObserver){window.myselfpayAppObserver=new MutationObserver(compact);window.myselfpayAppObserver.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});}})()",null);
         if(openSearch){
             openSearch=false;
             web.evaluateJavascript("(function(){var tries=0;function enter(){var b=document.getElementById('welcomeBegin');if(b){b.click();return;}if(document.getElementById('searchForm'))return;if(++tries<40)setTimeout(enter,150);}enter();})()",null);
         }
+        revealStyledPage();
     }
     private boolean route(String url, boolean mainFrame) {
-        if (UrlPolicy.isInternal(url)) return false;
+        if (UrlPolicy.isInternal(url)) { if(mainFrame)beginPageTransition();return false; }
         if (mainFrame && UrlPolicy.isExternalAllowed(url)) {
             try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
             catch (ActivityNotFoundException ignored) {
@@ -260,9 +283,10 @@ public class MainActivity extends Activity {
     }
     @Override public void onBackPressed() {
         if(home.getVisibility()==View.VISIBLE){super.onBackPressed();return;}
-        if(web.canGoBack())web.goBack();else showHome();
+        if(web.canGoBack()){beginPageTransition();web.goBack();}else showHome();
     }
     @Override protected void onDestroy() {
+        destroyed=true;
         web.stopLoading();
         web.destroy();
         super.onDestroy();

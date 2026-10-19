@@ -66,6 +66,7 @@ const {chromium} = require('playwright');
       await page.screenshot({path:`mobile-qa/results-${width}.png`,fullPage:false});
       await page.evaluate(()=>window.myselfpayOpenSearch());
       assert.equal(await page.locator('#searchForm').isVisible(),true);
+      assert.equal(await page.locator('article.card:visible').count(),0);
       assert.equal(await page.locator('#body').inputValue(),'Knee');
       await page.evaluate(()=>window.myselfpayCloseOverlay());
       assert.equal(await page.locator('#searchForm').isVisible(),false);

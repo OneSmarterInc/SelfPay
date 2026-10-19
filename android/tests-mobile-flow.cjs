@@ -40,7 +40,7 @@ const {chromium} = require('playwright');
       assert.equal(await page.locator('.mobile-card-more .facts').isVisible(),false);
       assert.match(await page.locator('article.card').first().innerText(),/\$350/);
       assert.equal(await page.getByText('Programs available in Ohio',{exact:true}).count(),1);
-      assert.equal(await page.getByText('Facilities to contact for a quote',{exact:true}).count(),1);
+      assert.equal(await page.getByText('Facilities to contact for a quote',{exact:true}).count(),1,await page.locator('#app').innerText());
       await page.locator('#mobileEditSearch').click();
       assert.equal(await page.locator('#searchForm').isVisible(),true);
       assert.equal(await page.locator('#body').inputValue(),'Knee');

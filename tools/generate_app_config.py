@@ -25,6 +25,11 @@ def generate(platform,root=ROOT):
         path=root/'android/app/src/main/java/com/onesmarter/myselfpay/AppConfig.java'
         content='// Generated from app-config.json. Do not edit.\npackage com.onesmarter.myselfpay;\nfinal class AppConfig { static final String HOME = '+json.dumps(url)+'; }\n'
     else: raise ValueError('Unknown platform')
+    if platform=='android':
+        import base64
+        resources=root/'android/app/src/main/res/drawable'
+        (resources/'ic_launcher.xml').unlink(missing_ok=True)
+        (resources/'ic_launcher.png').write_bytes(base64.b64decode((root/'android/launcher-icon.png.base64').read_text()))
     path.parent.mkdir(parents=True,exist_ok=True)
     path.write_text(content)
 

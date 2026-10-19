@@ -1,19 +1,15 @@
 body{font-size:15px!important;line-height:1.45}
 .shell{padding:0 16px!important;margin:12px auto!important}
-.tabs{display:grid!important;grid-template-columns:1fr 1fr;gap:8px!important;margin:0 0 16px!important}
-.tabs #explore{grid-column:1/-1;background:transparent;border:0;color:#8e161e;min-height:44px!important;padding:8px!important}
-.tabs button{font-size:14px!important;padding:10px!important;min-height:44px!important}
+.tabs,#explore,#mobileEditSearch{display:none!important}
 .grid{margin-top:12px!important;gap:12px!important}
 .grid>.stack{gap:0!important}
 .mobile-search-panel{padding:16px!important}
 .mobile-search-panel>details>summary{display:none}
-.mobile-agent .mobile-search-panel>details>summary{display:block}
-.mobile-search-panel>details>p{margin:0 0 16px!important;font-size:13px!important}
+.mobile-search-panel>details>p{display:none!important}
 .field{gap:4px!important;margin-bottom:14px!important}
 .field>label{font-size:13px!important;margin:0!important}
 input:not([type=checkbox]),select{min-height:46px!important;font-size:16px!important}
 .mobile-results:not(.mobile-editing) .grid>.stack:has(#searchForm){display:none!important}
-#mobileEditSearch{width:100%;text-align:left;background:white;border-color:#e0e3e8;font-weight:600;margin:0 0 8px}
 .mobile-results .chips{gap:6px;margin:8px 0 12px}
 .chip{padding:5px 9px!important;font-size:12px!important}
 article.card{padding:16px!important;border-radius:14px!important}
@@ -48,3 +44,52 @@ dialog{width:100vw!important;max-width:100vw!important;height:100dvh;max-height:
 .app-intro:has(#sampleSearch){display:none!important}
 .app-coverage{margin:0!important;padding:8px!important;font-size:12px!important}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+
+/* App destinations: search lives behind the toolbar icon; chat is a floating action. */
+#app:has(#searchForm){padding-bottom:90px!important}
+#searchNotice:empty,.mobile-results .app-coverage{display:none!important}
+.mobile-search-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:12px}
+.mobile-search-heading h2{margin:0;font-size:22px!important}
+.mobile-search-heading button{min-height:44px!important;border:0;background:#f3f4f6;padding:8px 12px!important}
+.mobile-searching .grid>section,.mobile-searching>.chips,.mobile-searching #mobileResultCategories{display:none!important}
+.mobile-searching .grid>.stack{display:block!important}
+.mobile-search-panel{background:transparent!important;box-shadow:none!important;padding:8px 0!important}
+.mobile-searching .app-extra{background:transparent!important;border-top:1px solid #e6e8ec;border-radius:0!important;padding:8px 0!important;margin:8px 0!important}
+.mobile-searching #searchForm>button.primary{min-height:50px!important;margin-top:12px}
+.mobile-agent .grid>.stack,.mobile-agent>.chips{display:none!important}
+.mobile-agent .grid>section>*{display:none!important}
+.mobile-agent .grid>section>#mobileCloseChat,.mobile-agent .grid>section>.panel:has(#chatForm){display:block!important}
+#mobileCloseChat{width:100%;text-align:left;background:white;margin-bottom:8px}
+.mobile-agent .chat{height:42dvh;min-height:180px;max-height:none}
+.mobile-agent #chatForm{position:sticky;bottom:0;padding:12px 0!important}
+#mobileChatButton{position:fixed;right:16px;bottom:18px;z-index:25;display:flex;align-items:center;gap:8px;min-height:52px!important;padding:12px 16px!important;border:0!important;border-radius:28px!important;background:#b01b23!important;color:white!important;box-shadow:0 5px 18px #57101530;font-weight:600;font-size:13px!important}
+body:has(.sticky) #mobileChatButton{bottom:104px}
+body:has(dialog[open]) #mobileChatButton,.mobile-agent #mobileChatButton{display:none!important}
+#mobileResultCategories{display:flex;gap:6px;overflow-x:auto;white-space:nowrap;padding:2px 0 8px;scrollbar-width:none;grid-column:1/-1}
+#mobileResultCategories button{flex:1 0 auto;min-height:40px!important;padding:8px 10px!important;font-size:12px!important;border-radius:20px!important;background:white;border:1px solid #e0e3e8}
+#mobileResultCategories button[aria-pressed=true]{background:#1e2226;color:white;border-color:#1e2226}
+.mobile-group-heading,.mobile-results section.stack>p,.mobile-results section.stack>p.small{display:none!important}
+.mobile-results .grid{margin-top:6px!important;gap:0!important}
+.mobile-results section.stack{gap:10px!important}
+.mobile-results section.stack>.row.between{align-items:center!important;flex-wrap:nowrap!important;gap:8px}
+.mobile-results section.stack>.row.between h2{font-size:15px!important;margin:0!important}
+.mobile-results #sort{width:auto!important;max-width:52%;font-size:12px!important;min-height:40px!important;padding:6px 8px!important}
+.mobile-results article.card{padding:13px 14px!important;border-radius:14px!important;box-shadow:0 1px 4px #17212b06!important}
+.mobile-results article.card[hidden]{display:none!important}
+.mobile-results article.card>.row[style]{display:flex!important;align-items:flex-start!important;gap:12px!important;flex-wrap:nowrap!important;margin-top:0!important}
+.mobile-results article.card>.row[style]>div:first-child{flex:1;min-width:0}
+.mobile-results article.card .price{flex:none;font-size:23px!important;margin:0!important;max-width:44%;line-height:1.25}
+.mobile-results article.card h3{font-size:16px!important;line-height:1.35;margin:0 0 4px!important}
+.mobile-results article.card>.row:first-child{margin-bottom:7px!important}
+.mobile-results article.card .badge{font-size:10px!important;padding:3px 6px!important}
+.mobile-results article.card label.small{min-height:36px!important;font-size:11px!important;gap:5px}
+.mobile-results article.card input[type=checkbox]{width:18px!important;height:18px!important}
+.mobile-results article.card .scope{margin:6px 0 0!important;font-size:12px!important;font-weight:600!important}
+.mobile-results article.card>.card-actions,.mobile-results article.card>.mobile-card-more{display:none!important}
+.mobile-results article.card>.row:last-child{justify-content:flex-end;border-top:1px solid #eef0f3;margin-top:8px;padding-top:2px}
+.mobile-results article.card [data-detail]{width:auto!important;min-height:36px!important;border:0!important;background:transparent!important;color:#a11720!important;padding:4px 0 4px 12px!important;font-size:12px!important}
+.mobile-results article.card [data-detail]::after{content:'  ›';font-size:18px}
+.mobile-results article.card>p{font-size:12px!important;margin:6px 0!important;line-height:1.5}
+.mobile-results article.card>strong{font-size:14px}
+#mobileMoreResults{width:100%;min-height:48px!important;background:white;margin-top:8px}
+.mobile-results article.mobile-contact-only>.mobile-card-more{display:block!important}

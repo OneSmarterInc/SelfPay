@@ -93,9 +93,18 @@ public class MainActivity extends Activity {
         title = text("MySelfPay", 20, true);
         toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
         title.setGravity(Gravity.CENTER_VERTICAL);
-        Button refresh = action("↻", "Refresh live information");
-        refresh.setOnClickListener(v -> { if(home.getVisibility()!=View.VISIBLE) { beginPageTransition();web.reload(); } });
-        toolbar.addView(refresh, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        android.widget.ImageButton search = new android.widget.ImageButton(this);
+        search.setImageDrawable(new SearchIcon());
+        search.setBackgroundColor(Color.TRANSPARENT);
+        search.setPadding(dp(12),dp(12),dp(12),dp(12));
+        search.setContentDescription("Search & filters");
+        search.setOnClickListener(v -> {
+            if(home.getVisibility()==View.VISIBLE){showSearch();return;}
+            web.evaluateJavascript("Boolean(window.myselfpayOpenSearch && window.myselfpayOpenSearch())",opened->{
+                if(!destroyed && !"true".equals(opened))showSearch();
+            });
+        });
+        toolbar.addView(search, new LinearLayout.LayoutParams(dp(48), dp(48)));
         shell.addView(toolbar);
         home = createHome();
         root.addView(home, new FrameLayout.LayoutParams(-1,-1));
@@ -144,6 +153,20 @@ public class MainActivity extends Activity {
         showHome();
     }
     private int dp(int value){ return Math.round(value*getResources().getDisplayMetrics().density); }
+    private static class SearchIcon extends android.graphics.drawable.Drawable {
+        private final android.graphics.Paint paint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        @Override public void draw(android.graphics.Canvas canvas){
+            android.graphics.Rect b=getBounds();
+            float unit=Math.min(b.width(),b.height())/24f;
+            paint.setColor(Color.rgb(30,34,38));paint.setStyle(android.graphics.Paint.Style.STROKE);
+            paint.setStrokeWidth(2.2f*unit);paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+            canvas.drawCircle(b.left+10*unit,b.top+10*unit,6.5f*unit,paint);
+            canvas.drawLine(b.left+15*unit,b.top+15*unit,b.left+21*unit,b.top+21*unit,paint);
+        }
+        @Override public void setAlpha(int alpha){paint.setAlpha(alpha);}
+        @Override public void setColorFilter(android.graphics.ColorFilter filter){paint.setColorFilter(filter);}
+        @Override public int getOpacity(){return android.graphics.PixelFormat.TRANSLUCENT;}
+    }
     private TextView text(String value,int size,boolean bold){
         TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(Color.rgb(30,34,38));
         if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
@@ -208,23 +231,33 @@ public class MainActivity extends Activity {
         if(window!=null)window.setLayout(-1,-1);
     }
     private ScrollView createHome(){
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(Color.rgb(246,246,245));
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(Color.WHITE);
         LinearLayout column=new LinearLayout(this);column.setOrientation(LinearLayout.VERTICAL);
-        column.setPadding(dp(24),dp(24),dp(24),dp(24));scroll.addView(column);
+        column.setPadding(dp(24),dp(32),dp(24),dp(24));scroll.addView(column);
+        LinearLayout identity=new LinearLayout(this);identity.setGravity(Gravity.CENTER_VERTICAL);
         ImageView logo=new ImageView(this);logo.setImageResource(com.onesmarter.myselfpay.R.drawable.ic_launcher);
-        logo.setContentDescription("MySelfPay logo");column.addView(logo,new LinearLayout.LayoutParams(dp(56),dp(56)));
-        TextView heading=text("Find self-pay MRI and CT near you.",26,true);
-        heading.setPadding(0,dp(24),0,dp(12));column.addView(heading);
-        TextView intro=text("Compare prices. Contact the facility.",16,false);column.addView(intro);
-        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(20),dp(20),dp(20),dp(20));
-        GradientDrawable bg=new GradientDrawable();bg.setColor(Color.WHITE);bg.setCornerRadius(dp(20));card.setBackground(bg);card.setElevation(0);
-        LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.topMargin=dp(20);column.addView(card,cp);
+        logo.setContentDescription("MySelfPay logo");identity.addView(logo,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        TextView welcome=text("YOUR SELF-PAY SEARCH",12,true);welcome.setTextColor(Color.rgb(176,27,35));
+        welcome.setPadding(dp(12),0,0,0);identity.addView(welcome);column.addView(identity);
+        TextView heading=text("Imaging options.\nClearer prices.",30,true);
+        heading.setPadding(0,dp(28),0,dp(12));column.addView(heading);
+        TextView intro=text("Find self-pay MRI and CT near you.",16,false);intro.setTextColor(Color.rgb(91,97,104));column.addView(intro);
+        LinearLayout services=new LinearLayout(this);services.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams serviceRow=new LinearLayout.LayoutParams(-1,-2);serviceRow.topMargin=dp(28);column.addView(services,serviceRow);
+        String[] names={"MRI", "CT"};String[] descriptions={"Magnetic resonance", "CT imaging"};
+        for(int i=0;i<names.length;i++){
+            LinearLayout tile=new LinearLayout(this);tile.setOrientation(LinearLayout.VERTICAL);tile.setPadding(dp(16),dp(18),dp(16),dp(18));
+            GradientDrawable background=new GradientDrawable();background.setColor(Color.rgb(248,245,245));background.setCornerRadius(dp(16));tile.setBackground(background);
+            tile.addView(text(names[i],24,true));TextView description=text(descriptions[i],12,false);description.setPadding(0,dp(6),0,0);tile.addView(description);
+            LinearLayout.LayoutParams tileSize=new LinearLayout.LayoutParams(0,-2,1);if(i==0)tileSize.rightMargin=dp(12);services.addView(tile,tileSize);
+        }
+        TextView steps=text("Search nearby  ·  Compare  ·  Contact",14,false);steps.setPadding(0,dp(24),0,dp(20));column.addView(steps);
+        View spacer=new View(this);column.addView(spacer,new LinearLayout.LayoutParams(1,0,1));
         Button start=action("Sign in as guest","Sign in as guest");
         styleButton(start,Color.rgb(176,27,35),Color.WHITE);start.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
-        start.setOnClickListener(v->showSearch());card.addView(start,new LinearLayout.LayoutParams(-1,dp(56)));
-        TextView note=text("No account needed",14,true);note.setPadding(0,dp(24),0,dp(12));column.addView(note);
-        column.addView(text("Confirm prices with the facility.",14,false));
+        start.setOnClickListener(v->showSearch());column.addView(start,new LinearLayout.LayoutParams(-1,dp(52)));
+        TextView note=text("No account needed",13,false);note.setGravity(Gravity.CENTER);note.setPadding(0,dp(12),0,dp(16));column.addView(note);
+        TextView disclaimer=text("Confirm the exact exam and total with the facility.",12,false);disclaimer.setTextColor(Color.rgb(91,97,104));disclaimer.setGravity(Gravity.CENTER);column.addView(disclaimer);
         return scroll;
     }
     private void showHome(){
@@ -293,7 +326,7 @@ public class MainActivity extends Activity {
     }
     @Override public void onBackPressed() {
         if(home.getVisibility()==View.VISIBLE){super.onBackPressed();return;}
-        web.evaluateJavascript("(function(){var modal=document.querySelector('dialog[open]');if(modal){modal.close();return true;}var back=document.getElementById('back');if(back){back.click();return true;}var app=document.getElementById('app');if(app&&app.classList.contains('mobile-editing')){document.getElementById('mobileEditSearch').click();return true;}return false;})()",handled->{
+        web.evaluateJavascript("(function(){var modal=document.querySelector('dialog[open]');if(modal){modal.close();return true;}var back=document.getElementById('back');if(back){back.click();return true;}var app=document.getElementById('app');if(window.myselfpayCloseOverlay&&window.myselfpayCloseOverlay())return true;return false;})()",handled->{
             if(destroyed || "true".equals(handled))return;
             if(web.canGoBack()){beginPageTransition();web.goBack();}else showHome();
         });

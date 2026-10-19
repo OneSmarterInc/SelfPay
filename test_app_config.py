@@ -8,6 +8,10 @@ class AppConfigTests(unittest.TestCase):
     def test_address_change_reaches_both_apps(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);(root/'app-config.json').write_text(json.dumps({'website_url':'https://example.com'}))
+            resources=root/'android/app/src/main/res/drawable'
+            resources.mkdir(parents=True)
+            icon=Path(__file__).parent/'android/launcher-icon.png.base64'
+            (root/'android/launcher-icon.png.base64').write_text(icon.read_text())
             for platform in ['ios','android']:generate(platform,root)
             for p in [root/'ios/MySelfPay/AppConfig.swift',root/'android/app/src/main/java/com/onesmarter/myselfpay/AppConfig.java']:
                 self.assertIn('https://example.com/',p.read_text())

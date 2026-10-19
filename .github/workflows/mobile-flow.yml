@@ -18,6 +18,12 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Verify mobile flows at three phone widths
         run: node android/tests-mobile-flow.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-screen-qa
+          path: mobile-qa/
+          if-no-files-found: ignore
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

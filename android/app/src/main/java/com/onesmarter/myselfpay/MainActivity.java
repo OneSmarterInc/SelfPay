@@ -296,7 +296,7 @@ public class MainActivity extends Activity {
         web.evaluateJavascript(asset("mobile-flow.js"),null);
         if(openSearch){
             openSearch=false;
-            web.evaluateJavascript("(function(){var tries=0;function enter(){var b=document.getElementById('welcomeBegin');if(b){b.click();return;}if(document.getElementById('searchForm'))return;if(++tries<40)setTimeout(enter,150);}enter();})()",null);
+            web.evaluateJavascript("(function(){var tries=0;function enter(){var b=document.getElementById('welcomeBegin');if(b){b.click();return;}if(document.getElementById('searchForm')){if(window.myselfpayOpenSearch)window.myselfpayOpenSearch();return;}if(++tries<40)setTimeout(enter,150);}enter();})()",null);
         }
         revealStyledPage();
     }

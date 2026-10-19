@@ -18,7 +18,11 @@ const {chromium} = require('playwright');
           if(path==='/api/catalog')data={entries:[entry],offers:[offer],version:'test'};
           if(path==='/api/guest-usage')data={usage:{}};
           if(path==='/api/directory-summary')data={listing_count:1,state_count:1};
-          if(path==='/api/search')data={search:route.request().postDataJSON(),offers:[offer],version:'test',resolved_location:{city:'Cincinnati'},program_entries:[{...entry,name:'Test program'}],program_heading:'Programs available in Ohio',nearby_unpriced:[{...entry,name:'Quote facility',distance_miles:5}]};
+          if(path==='/api/search') {
+            const input=route.request().postDataJSON();
+            const search=Object.fromEntries(['mod','body','contrast','location','budget','type','sort','radius'].map(key=>[key,input[key]]));
+            data={search,offers:[offer],version:'test',resolved_location:{city:'Cincinnati'},program_entries:[{...entry,name:'Test program'}],program_heading:'Programs available in Ohio',nearby_unpriced:[{...entry,name:'Quote facility',distance_miles:5}]};
+          }
           return route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
         }
         if(path==='/')return route.fulfill({contentType:'text/html',body:fs.readFileSync('static/index.html','utf8')});

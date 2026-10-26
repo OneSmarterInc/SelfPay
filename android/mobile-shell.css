@@ -1,0 +1,30 @@
+/* Native Play shell: hide desktop site chrome and render screenshot-matching toolbar. */
+body{padding-top:58px!important}
+body>header,body>.site-footer,body>footer.site-footer{display:none!important}
+#nativeMobileHeader{position:fixed;z-index:100;left:0;right:0;top:0;height:58px;background:white;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid #f1f1f1;color:#202124}
+#nativeMobileHeader button{border:0;background:transparent;padding:4px;font-size:29px;width:40px;height:44px}
+#nativeMobileHeader strong{flex:1;font-size:20px;letter-spacing:-.5px;white-space:nowrap}
+#nativeMobileDrawer{display:none;position:fixed;z-index:110;inset:0;background:white;overflow:auto;padding:24px 24px max(20px,env(safe-area-inset-bottom));}
+.native-drawer-open #nativeMobileDrawer{display:block}
+.native-drawer-open{overflow:hidden}
+.native-menu-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.native-menu-top strong{font-size:24px}
+.native-menu-top button{border:0;font-size:32px;background:transparent}
+#nativeMenuItems{display:flex;flex-direction:column;align-items:stretch;gap:0}
+#nativeMenuItems button{text-align:left;border:0;background:white;font-size:18px;min-height:78px;padding:12px 6px;color:#1e2226}
+.native-welcome>.welcome-intro>div:not(#nativeHomeHero),.native-welcome>.welcome-intro>aside,.native-welcome>.welcome-steps{display:none!important}
+.native-welcome>.welcome-intro{display:block!important;background:white!important;border:0!important;padding:8px 8px!important;margin:0!important}
+.native-welcome .shell{margin:0!important}
+#nativeHomeHero{min-height:calc(100dvh - 80px);display:flex;flex-direction:column;padding:32px 0 12px;background:white}
+.native-home-brand{display:flex;align-items:center;gap:14px;color:#aa1420;font-size:12px;margin-bottom:32px}
+.native-home-brand img{width:50px;height:50px;object-fit:contain}
+#nativeHomeHero h1{font-size:30px;line-height:1.22;letter-spacing:-.5px;margin:0 0 14px}
+#nativeHomeHero>p{font-size:16px;color:#65676c;margin:0 0 24px}
+.native-services{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.native-services button{min-height:98px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:8px;background:#f6f5f4;border:0;border-radius:16px;padding:16px}
+.native-services b{font-size:24px}
+.native-services span{font-size:13px;text-align:left}
+.native-home-links{margin-top:22px;font-size:14px}
+#nativeGuest{margin-top:auto;background:#b01b23;color:white;min-height:54px;border:0;border-radius:14px;font-weight:700}
+.native-home-caption{text-align:center;margin-top:12px}
+#nativeHomeHero .native-disclaimer{text-align:center;margin-top:20px;font-size:12px;color:#666}

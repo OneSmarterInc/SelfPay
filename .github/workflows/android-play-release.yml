@@ -54,6 +54,18 @@ jobs:
           MYSELFPAY_STORE_PASSWORD: ${{ secrets.MYSELFPAY_STORE_PASSWORD }}
           MYSELFPAY_KEY_PASSWORD: ${{ secrets.MYSELFPAY_KEY_PASSWORD }}
         run: gradle --no-daemon :app:bundleRelease
+      - name: Verify v1.0.2 release bundle and bundled mobile UI
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          BUNDLE="android/app/build/outputs/bundle/release/app-release.aab"
+          test -s "$BUNDLE"
+          grep -q 'versionCode 3' android/app/build.gradle
+          grep -q "versionName '1.0.2'" android/app/build.gradle
+          unzip -Z1 "$BUNDLE" | grep -Fx 'base/assets/mobile-flow.css'
+          unzip -Z1 "$BUNDLE" | grep -Fx 'base/assets/mobile-flow.js'
+          unzip -Z1 "$BUNDLE" | grep -Fx 'base/res/drawable/ic_launcher.jpg'
+          echo "MySelfPay v1.0.2 AAB and original mobile UI assets verified."
       - name: Upload release bundle
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4

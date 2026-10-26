@@ -60,15 +60,15 @@ jobs:
           set -euo pipefail
           BUNDLE="android/app/build/outputs/bundle/release/app-release.aab"
           test -s "$BUNDLE"
-          grep -Eq 'versionCode[[:space:]]+4' android/app/build.gradle
-          grep -Eq "versionName[[:space:]]+'1.0.3'" android/app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+5' android/app/build.gradle
+          grep -Eq "versionName[[:space:]]+'1.0.4'" android/app/build.gradle
           unzip -Z1 "$BUNDLE" > /tmp/myselfpay-bundle-entries.txt
           grep -Fx 'base/assets/mobile-flow.css' /tmp/myselfpay-bundle-entries.txt
           grep -Fx 'base/assets/mobile-flow.js' /tmp/myselfpay-bundle-entries.txt
           grep -Fx 'base/assets/mobile-shell.css' /tmp/myselfpay-bundle-entries.txt
           grep -Fx 'base/assets/mobile-shell.js' /tmp/myselfpay-bundle-entries.txt
           grep -E '^base/res/drawable/ic_launcher[^/]*' /tmp/myselfpay-bundle-entries.txt
-          echo "MySelfPay v1.0.3 AAB assets verified."
+          echo "MySelfPay v1.0.4 AAB assets verified."
       - name: Upload release bundle
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4

@@ -6,8 +6,8 @@ android {
         applicationId 'com.onesmarter.myselfpay'
         minSdk 26
         targetSdk 36
-        versionCode 3
-        versionName '1.0.2'
+        versionCode 4
+        versionName '1.0.3'
     }
     signingConfigs {
         release {
@@ -56,3 +56,10 @@ tasks.register('prepareOriginalApkUi', Exec) {
     outputs.files file('src/main/assets/mobile-flow.css'), file('src/main/assets/mobile-flow.js'), file('src/main/res/drawable/ic_launcher.jpg')
 }
 tasks.named('preBuild').configure { dependsOn 'prepareOriginalApkUi' }
+
+// Bundle mobile shell along with original APK CSS and JS.
+tasks.register('prepareMobileShell', Copy) {
+    from rootProject.file('mobile-shell.js'), rootProject.file('mobile-shell.css')
+    into file('src/main/assets')
+}
+tasks.named('preBuild').configure { dependsOn 'prepareMobileShell' }

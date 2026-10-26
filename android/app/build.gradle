@@ -6,8 +6,8 @@ android {
         applicationId 'com.onesmarter.myselfpay'
         minSdk 26
         targetSdk 36
-        versionCode 1
-        versionName '1.0.0'
+        versionCode 2
+        versionName '1.0.1'
     }
     signingConfigs {
         release {
@@ -46,3 +46,13 @@ tasks.named('preBuild').configure { dependsOn 'generateAppConfig' }
 dependencies {
     implementation 'androidx.activity:activity:1.10.1'
 }
+
+// Restore bundled UI files from the exact uploaded test APK on every build.
+tasks.register('prepareOriginalApkUi', Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine 'python3', 'tools/prepare_original_apk_ui.py'
+    inputs.file rootProject.file('original-apk-ui-assets.tar.gz.b64')
+    inputs.file rootProject.file('../tools/prepare_original_apk_ui.py')
+    outputs.files file('src/main/assets/mobile-flow.css'), file('src/main/assets/mobile-flow.js'), file('src/main/res/drawable/ic_launcher.jpg')
+}
+tasks.named('preBuild').configure { dependsOn 'prepareOriginalApkUi' }

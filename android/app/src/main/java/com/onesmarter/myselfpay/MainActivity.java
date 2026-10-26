@@ -147,6 +147,8 @@ public class MainActivity extends ComponentActivity {
     private void injectOriginalMobileUi(WebView view) {
         String css = readMobileAsset("mobile-flow.css");
         String js = readMobileAsset("mobile-flow.js");
+        String shellCss = readMobileAsset("mobile-shell.css");
+        String shellJs = readMobileAsset("mobile-shell.js");
         if (!css.isEmpty()) {
             view.evaluateJavascript("(function(){var el=document.getElementById('myselfpay-mobile-style');" +
                 "if(!el){el=document.createElement('style');el.id='myselfpay-mobile-style';" +
@@ -154,6 +156,8 @@ public class MainActivity extends ComponentActivity {
                 "el.textContent=" + org.json.JSONObject.quote(css) + ";})();", null);
         }
         if (!js.isEmpty()) view.evaluateJavascript(js, null);
+        if (!shellCss.isEmpty()) view.evaluateJavascript("(function(){var s=document.getElementById(\'myselfpay-shell-style\');if(!s){s=document.createElement(\'style\');s.id=\'myselfpay-shell-style\';document.head.appendChild(s);}s.textContent=" + org.json.JSONObject.quote(shellCss) + ";})();", null);
+        if (!shellJs.isEmpty()) view.evaluateJavascript(shellJs, null);
     }
 
     @Override protected void onDestroy() {

@@ -22,7 +22,7 @@
  shell.innerHTML='<button type="button" id="nativeHamburger" aria-label="Open navigation">☰</button><strong id="nativeTitle">MySelfPay</strong><button type="button" id="nativeSearch" aria-label="Search">⌕</button>';
  const drawer=document.createElement('div');drawer.id='nativeMobileDrawer';drawer.setAttribute('role','dialog');drawer.setAttribute('aria-modal','true');
  drawer.innerHTML='<div class="native-menu-top"><strong>MySelfPay</strong><button type="button" id="nativeClose" aria-label="Close navigation">×</button></div><nav id="nativeMenuItems"></nav>';
- const menu=[['Home',goHome],['Search',launchSearch],['About',()=>location.assign('/about.html')],['Contact',()=>location.assign('/contact.html')],['Terms & Privacy',()=>location.assign('/privacy-terms.html')],['For imaging centers',()=>location.assign('/for-imaging-centers.html')],['Sign out',()=>{close();const b=q('#signout')||q('#logout')||q('#signOut');if(b)b.click();else goHome();}]];
+ const menu=[['Home',goHome],['Search',launchSearch],['About',()=>location.assign('/about')],['Contact',()=>location.assign('/contact')],['Terms & Privacy',()=>location.assign('/privacy-terms')],['For imaging centers',()=>location.assign('/for-imaging-centers')],['Sign out',()=>{close();const b=q('#signout')||q('#logout')||q('#signOut');if(b)b.click();else goHome();}]];
  menu.forEach(([label,fn])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.addEventListener('click',fn);drawer.querySelector('nav').appendChild(b);});
  document.body.append(shell,drawer);
  drawer.setAttribute('aria-hidden','true');

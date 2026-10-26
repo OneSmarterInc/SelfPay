@@ -41,3 +41,10 @@ html.native-drawer-open,body.native-drawer-open{overflow:hidden!important;oversc
 #nativeMobileDrawer:not([aria-hidden="false"]){pointer-events:none;}
 #nativeMobileDrawer[aria-hidden="false"]{pointer-events:auto;}
 @media(max-height:650px){#nativeMenuItems button{min-height:58px!important;}}
+
+/* Remove original multi-step welcome choices; compact hero is the sole mobile landing screen. */
+#app.native-welcome > :not(.welcome-intro){display:none!important}
+#app.native-welcome .welcome-intro > :not(#nativeHomeHero){display:none!important}
+#app.native-welcome .welcome-intro{padding:0!important;box-shadow:none!important}
+#app.native-welcome{background:#fff!important;min-height:calc(100dvh - 58px)!important}
+body:has(#app.native-welcome){background:#fff!important}

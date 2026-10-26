@@ -42,3 +42,7 @@ tasks.register('generateAppConfig', Exec) {
     outputs.file file('src/main/java/com/onesmarter/myselfpay/AppConfig.java')
 }
 tasks.named('preBuild').configure { dependsOn 'generateAppConfig' }
+
+dependencies {
+    implementation 'androidx.activity:activity:1.10.1'
+}

@@ -1,21 +1,39 @@
 plugins { id 'com.android.application' }
 android {
     namespace 'com.onesmarter.myselfpay'
-    compileSdk 35
+    compileSdk 36
     defaultConfig {
         applicationId 'com.onesmarter.myselfpay'
         minSdk 26
-        targetSdk 35
+        targetSdk 36
         versionCode 1
-        versionName '0.1.0'
+        versionName '1.0.0'
+    }
+    signingConfigs {
+        release {
+            def path = System.getenv('MYSELFPAY_KEYSTORE_PATH')
+            def alias = System.getenv('MYSELFPAY_KEY_ALIAS')
+            def storePass = System.getenv('MYSELFPAY_STORE_PASSWORD')
+            def keyPass = System.getenv('MYSELFPAY_KEY_PASSWORD')
+            if (path && alias && storePass && keyPass) {
+                storeFile file(path)
+                storePassword storePass
+                keyAlias alias
+                keyPassword keyPass
+            }
+        }
     }
     buildTypes {
         debug { applicationIdSuffix '.test'; versionNameSuffix '-test' }
-        release { minifyEnabled false }
+        release {
+            minifyEnabled false
+            if (System.getenv('MYSELFPAY_KEYSTORE_PATH') && System.getenv('MYSELFPAY_KEY_ALIAS') && System.getenv('MYSELFPAY_STORE_PASSWORD') && System.getenv('MYSELFPAY_KEY_PASSWORD')) {
+                signingConfig signingConfigs.release
+            }
+        }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
-
 tasks.register('generateAppConfig', Exec) {
     workingDir rootProject.projectDir.parentFile
     commandLine 'python3', 'tools/generate_app_config.py', 'android'

@@ -1,6 +1,7 @@
 package com.onesmarter.myselfpay;
 
-import android.app.Activity;
+import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Color;
@@ -24,7 +25,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class MainActivity extends Activity {
+public class MainActivity extends ComponentActivity {
     private WebView web;
     private LinearLayout errorPanel;
     private ProgressBar progress;
@@ -62,6 +63,16 @@ public class MainActivity extends Activity {
         root.addView(errorPanel, new FrameLayout.LayoutParams(-1, -1));
         errorPanel.setVisibility(View.GONE);
         setContentView(root);
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override public void handleOnBackPressed() {
+                if (web.canGoBack()) {
+                    web.goBack();
+                } else {
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
+                }
+            }
+        });
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -116,9 +127,6 @@ public class MainActivity extends Activity {
         failed = true;
         progress.setVisibility(View.GONE);
         errorPanel.setVisibility(View.VISIBLE);
-    }
-    @Override public void onBackPressed() {
-        if (web.canGoBack()) web.goBack(); else super.onBackPressed();
     }
     @Override protected void onDestroy() {
         web.stopLoading();

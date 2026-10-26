@@ -28,3 +28,16 @@ body>header,body>.site-footer,body>footer.site-footer{display:none!important}
 #nativeGuest{margin-top:auto;background:#b01b23;color:white;min-height:54px;border:0;border-radius:14px;font-weight:700}
 .native-home-caption{text-align:center;margin-top:12px}
 #nativeHomeHero .native-disclaimer{text-align:center;margin-top:20px;font-size:12px;color:#666}
+
+/* Scroll ownership: page scrolls normally, drawer scrolls independently. */
+html:not(.native-drawer-open),body:not(.native-drawer-open){overflow-y:auto!important;overscroll-behavior-y:auto}
+html.native-drawer-open,body.native-drawer-open{overflow:hidden!important;overscroll-behavior:none!important}
+#nativeMobileDrawer{box-sizing:border-box;inset:0!important;height:100dvh;max-height:100dvh;overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding:20px 24px max(24px,env(safe-area-inset-bottom))!important;}
+.native-menu-top{position:sticky;top:-20px;z-index:2;background:#fff;padding:8px 0 12px;margin-bottom:8px;}
+#nativeMenuItems{display:flex!important;flex-direction:column!important;flex-wrap:nowrap!important;gap:0!important;overflow:visible!important;}
+#nativeMenuItems button{display:block!important;flex:none!important;width:100%!important;min-height:70px!important;white-space:normal!important;}
+#nativeMobileHeader{box-sizing:border-box;}
+#nativeMobileHeader button{touch-action:manipulation;}
+#nativeMobileDrawer:not([aria-hidden="false"]){pointer-events:none;}
+#nativeMobileDrawer[aria-hidden="false"]{pointer-events:auto;}
+@media(max-height:650px){#nativeMenuItems button{min-height:58px!important;}}

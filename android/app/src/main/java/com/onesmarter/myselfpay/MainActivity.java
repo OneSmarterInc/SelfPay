@@ -97,6 +97,7 @@ public class MainActivity extends ComponentActivity {
                 progress.setVisibility(View.VISIBLE);
             }
             @Override public void onPageFinished(WebView view, String url) {
+                if (UrlPolicy.isInternal(url)) injectOriginalMobileUi(view);
                 progress.setVisibility(View.GONE);
                 if (!failed) errorPanel.setVisibility(View.GONE);
             }
@@ -128,6 +129,33 @@ public class MainActivity extends ComponentActivity {
         progress.setVisibility(View.GONE);
         errorPanel.setVisibility(View.VISIBLE);
     }
+
+    // Mirror the original redesign APK: inject its exact CSS and JS into the trusted origin.
+    private String readMobileAsset(String name) {
+        try (java.io.InputStream in = getAssets().open(name);
+             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+            return out.toString("UTF-8");
+        } catch (java.io.IOException e) {
+            android.util.Log.e("MySelfPay", "Mobile UI asset missing: " + name, e);
+            return "";
+        }
+    }
+
+    private void injectOriginalMobileUi(WebView view) {
+        String css = readMobileAsset("mobile-flow.css");
+        String js = readMobileAsset("mobile-flow.js");
+        if (!css.isEmpty()) {
+            view.evaluateJavascript("(function(){var el=document.getElementById('myselfpay-mobile-style');" +
+                "if(!el){el=document.createElement('style');el.id='myselfpay-mobile-style';" +
+                "(document.head||document.documentElement).appendChild(el);}" +
+                "el.textContent=" + org.json.JSONObject.quote(css) + ";})();", null);
+        }
+        if (!js.isEmpty()) view.evaluateJavascript(js, null);
+    }
+
     @Override protected void onDestroy() {
         web.stopLoading();
         web.destroy();

@@ -36,3 +36,6 @@ Exact apply SQL succeeded on the copy. Verification: active batch directory-addi
 Scope limitation: new listings retain complete workbook text, sources and dates but have unresolved coordinates and no new comparable price-offer mappings. Existing 57 mapped offers remain unchanged. Add-only scope excludes the two changed existing records.
 
 Status: TESTED; waiting for approval of this now-concrete SQL commit before live write, as POLICY.md requires approval after branch testing. Immediately before any live write, create and independently verify a seven-day backup branch under policy; abort if backup fails or live baseline differs. Automatic directory sync stays paused; no website/Vercel/billing changes.
+
+## Live execution approval
+2026-10-27: owner replied "update in production" after presentation of tested SQL commit e84c57dc34416344f9dbd5fc2ba5f80de3c9f6f7. Approved scope: exact add-only import and verification, with required backup check and guarded rollback on failure. Execution pending backup verification.

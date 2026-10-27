@@ -14,3 +14,8 @@ Target project: late-grass-13270808, database neondb, live branch br-rapid-mouse
 Requested next approval: execute ONLY ops/sql/20261027-directory-inventory.sql against live to compare public directory payloads and hashes. This SELECT does not access members, sessions, credentials, or conversations. Exact SQL commit and isolated test evidence will be appended after commit/testing.
 
 No write SQL is approved. Import SQL, location/offer mapping review, current-copy rehearsal, backup creation/verification and final live write approval remain pending. New workbook prices are source text, not automatically validated offers. Keep production, Vercel, website code, and billing unchanged.
+
+## Committed preflight and test evidence
+SQL commit: 3ab59c43ffd50e82c5ea4dd26e94eb51d0d045d6
+Exact committed SELECT tested on br-falling-violet-b7u7wu0m on 2026-10-27; succeeded, 152 rows returned. No writes performed. Test branch is historical and cannot prove current live contents.
+Live approval remains PENDING. Approval requested only for the exact read-only directory inventory SQL above; it does not authorize publication.

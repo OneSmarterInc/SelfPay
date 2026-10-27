@@ -35,6 +35,33 @@ class RegionSearchTests(unittest.TestCase):
         self.assertIn('Michigan', choices)
         self.assertIn('Illinois', choices)
 
+    def test_statewide_keeps_distant_and_unmapped_centers(self):
+        def entry(name, state, lat=None):
+            return dict(name=name, states=state, area=name, mri='Available', location_type='site', locations=[] if lat is None else [dict(state=state, latitude=lat, longitude=-87.63, precision='city')])
+        near=entry('Near', 'IL', 41.9)
+        far=entry('Far', 'IL', 37)
+        unmapped=entry('Unmapped', 'IL')
+        outside=entry('Outside', 'MI', 41.88)
+        def offer(e):
+            return dict(id=e['name'],entry=e,mod='MRI',type='fixed',contrast='without',amount=400,region=e['area'])
+        data=dict(version='test',entries=[far,outside,unmapped,near],offers=[offer(e) for e in [far,outside,near]])
+        with patch.object(core,'catalog',return_value=data):
+            for location in ['Chicago, IL','Illinois']:
+                result=core.search(dict(scope='state',mod='MRI',body='Knee',location=location,radius=25))
+                self.assertEqual({o['id'] for o in result['offers']},{'Near','Far'})
+                self.assertEqual([e['name'] for e in result['nearby_unpriced']],['Unmapped'])
+                self.assertIn('Illinois',result['results_heading'])
+                self.assertFalse(result['fallback'])
+                if location.startswith('Chicago'):
+                    self.assertEqual(result['offers'][0]['id'],'Near')
+                    self.assertGreater(result['offers'][1]['distance_miles'],25)
+            result=core.search(dict(scope='state',mod='CT',body='Knee',location='Chicago, IL'))
+            self.assertEqual(result['offers'],[])
+            self.assertEqual(result['nearby_unpriced'],[])
+            result=core.search(dict(scope='state',mod='MRI',body='Knee',location='mich'))
+            self.assertIsNone(result['resolved_location'])
+            self.assertEqual(result['offers'],[])
+
     def test_search_resolves_region_and_keeps_notice(self):
         with patch.object(core, 'catalog', return_value={'version': 'test', 'entries': [], 'offers': []}):
             result = core.search(dict(mod='MRI', body='Knee', location='Chicago suburbs, IL'))

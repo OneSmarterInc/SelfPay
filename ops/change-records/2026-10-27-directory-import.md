@@ -39,3 +39,11 @@ Status: TESTED; waiting for approval of this now-concrete SQL commit before live
 
 ## Live execution approval
 2026-10-27: owner replied "update in production" after presentation of tested SQL commit e84c57dc34416344f9dbd5fc2ba5f80de3c9f6f7. Approved scope: exact add-only import and verification, with required backup check and guarded rollback on failure. Execution pending backup verification.
+
+## Production execution completed — 2026-10-27
+Status: COMPLETED; database verification passed.
+Recovery backup: br-fragrant-frog-b7nxnggh, name backup-20261027-1701-directory-import; parent br-rapid-mouse-b7clh18t; created 2026-10-27T17:02:27Z; parent LSN 0/3EE3390. Retain at least through 2026-11-03T17:02:27Z. No automatic deletion scheduled.
+The committed ops/sql/backup-catalog-counts.sql was tested on the isolated copy and executed on live and backup as separate statements in a transaction (comments excluded). Both matched: active directory-additions-20261018, 152 entries, 57 offers, 145 located entries, 179 locations, 7 programs. Initial tool attempts rejected multiple prepared statements / a comment split; no mutations occurred in those checks.
+Executed exact approved apply SQL from e84c57dc34416344f9dbd5fc2ba5f80de3c9f6f7 against late-grass-13270808 / br-rapid-mouse-b7clh18t / neondb using authorized Neon tool. Transaction succeeded.
+Exact approved verification returned: active directory-additions-20261027; entries 182; offers 57; changed_existing 0; missing_or_changed_offers 0.
+30 directory listings added. Prior batch retained. Existing records and offers unchanged. No new mapped price offers or coordinates added. No application code, Vercel deployment, credentials, billing, GitHub Actions budget or sync activation changed. Database verified; no physical mobile-device test performed.

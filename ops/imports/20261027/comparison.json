@@ -1,0 +1,64 @@
+{
+  "workbook_sha256": "2d2c707cbe103642c7f0a86151b0f844cccda896ebc979c04cf18370e85e1ea3",
+  "rows": 182,
+  "baseline_rows": 152,
+  "new_candidates": 30,
+  "existing": 152,
+  "changed_existing": [
+    {
+      "name": "Compass Peak Imaging",
+      "fields": [
+        "mri",
+        "ct",
+        "other",
+        "notes",
+        "source",
+        "additional",
+        "checked"
+      ]
+    },
+    {
+      "name": "Nashville Healthcare Diagnostic Imaging",
+      "fields": [
+        "other",
+        "coverage",
+        "notes",
+        "additional",
+        "checked"
+      ]
+    }
+  ],
+  "duplicate_names": [],
+  "new_names": [
+    "Choice Imaging — Fort Wayne",
+    "Smart Scan Medical Imaging — Eau Claire Center",
+    "OrthoIllinois — Rockford Roxbury Imaging Center",
+    "Signature Orthopedics — South County",
+    "Hitchcock Direct Imaging — Hixson",
+    "Central Park Advanced Imaging — Manhattan",
+    "ProScan Imaging Buffalo — Canadian-patient MRI offer",
+    "Mason Imaging — Katy",
+    "MANA 3T MRI — Fayetteville",
+    "Clarus Imaging — Bloomington",
+    "Atlanta Bone & Joint Specialists — Snellville MRI",
+    "Granger Medical Clinic — West Jordan, Building A",
+    "Decatur Diagnostic Imaging",
+    "Topeka ER & Hospital — outpatient imaging",
+    "Oklahoma ER & Hospital — outpatient imaging",
+    "East Valley ER — Chandler outpatient imaging",
+    "NW Indiana ER & Hospital — outpatient imaging",
+    "Alexandria Emergency Hospital — outpatient imaging",
+    "Fort Smith ER & Hospital — outpatient imaging",
+    "RAYUS Radiology — Bangor",
+    "Rhode Island Medical Imaging — Warwick, Toll Gate Road",
+    "Excel Medical Imaging — New Port Richey",
+    "Gateway Diagnostic Imaging — Abilene",
+    "Regional Medical Imaging — Flint, Lennon Road",
+    "X-Ray Associates of New Mexico — Farmington",
+    "Orchard Imaging — Salem",
+    "Mountain West Medical Center — Simple + Price outpatient imaging",
+    "TaylorMED MRI — Lindon",
+    "QHMRI Center — Sunnyvale",
+    "Florida Orthopaedic Institute — Brandon"
+  ]
+}

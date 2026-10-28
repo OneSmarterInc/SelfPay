@@ -62,6 +62,23 @@ class RegionSearchTests(unittest.TestCase):
             self.assertIsNone(result['resolved_location'])
             self.assertEqual(result['offers'],[])
 
+    def test_state_only_search_and_optional_filters(self):
+        center=dict(name='Illinois center',states='IL',area='Chicago',location_type='site',locations=[],mri='Available',ct='Available')
+        other=dict(center,name='Michigan center',states='MI')
+        unmapped=dict(center,name='Unmapped center')
+        offers=[dict(id=mod,entry=center,mod=mod,type='fixed',contrast='without',amount=400,region='IL',exam_terms=['knee']) for mod in ['MRI','CT']]
+        with patch.object(core,'catalog',return_value=dict(version='test',entries=[center,other,unmapped],offers=offers)):
+            result=core.search(dict(scope='state',location='Illinois'))
+            self.assertEqual({o['id'] for o in result['offers']},{'MRI','CT'})
+            self.assertEqual([e['name'] for e in result['nearby_unpriced']],['Unmapped center'])
+            result=core.search(dict(scope='state',location='Illinois',mod='MRI'))
+            self.assertEqual([o['id'] for o in result['offers']],['MRI'])
+            result=core.search(dict(scope='state',location='Illinois',body='shoulder'))
+            self.assertEqual(result['offers'],[])
+            result=core.search(dict(scope='state',location=''))
+            self.assertEqual(result['offers'],[])
+            self.assertEqual(result['nearby_unpriced'],[])
+
     def test_search_resolves_region_and_keeps_notice(self):
         with patch.object(core, 'catalog', return_value={'version': 'test', 'entries': [], 'offers': []}):
             result = core.search(dict(mod='MRI', body='Knee', location='Chicago suburbs, IL'))

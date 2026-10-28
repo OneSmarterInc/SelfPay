@@ -286,14 +286,14 @@ def search(raw,path=DB):
         if resolved['kind']!='state':notice+='Known distances are approximate straight-line miles from your searched location; centers without verified coordinates are also included.'
     programs=[]; unlocated=[]
     def same_exam(o):
-        if o['mod']!=s['mod']:return False
+        if s['mod'] and o['mod']!=s['mod']:return False
         if s['contrast']!='unknown' and o['contrast']!=s['contrast']:return False
         terms=o.get('exam_terms')
-        return not terms or any(__import__('re').search(r'(?<!\w)'+__import__('re').escape(term.casefold())+r'(?!\w)',s['body'].casefold()) for term in terms)
+        return not s['body'].strip() or not terms or any(__import__('re').search(r'(?<!\w)'+__import__('re').escape(term.casefold())+r'(?!\w)',s['body'].casefold()) for term in terms)
     if spatial and not notice:notice='Distances are approximate straight-line miles from the searched city center, not driving distances.'
     for original in data['offers']:
         o=dict(original)
-        if not s['mod'] or not s['body'].strip() or not location:continue
+        if not location or (not statewide and (not s['mod'] or not s['body'].strip())):continue
         e=o['entry']
         if not spatial and selected_state and not in_state(e):continue
         if not same_exam(o) or (s['type']!='all' and s['type']!=o['type']):continue
@@ -388,8 +388,8 @@ def search(raw,path=DB):
     if statewide:
         represented={o['entry']['name'] for o in result}
         for entry in data['entries']:
-            if not s['mod'] or not s['body'].strip() or entry.get('location_type')=='program' or not in_state(entry) or entry['name'] in represented:continue
-            wording=str(entry.get(s['mod'].lower(),'')).strip()
+            if entry.get('location_type')=='program' or not in_state(entry) or entry['name'] in represented:continue
+            wording=str(entry.get(s['mod'].lower(),'')).strip() if s['mod'] else 'Service availability requires confirmation'
             if not wording or wording.casefold() in ('n/a','none','no'):continue
             if __import__('re').search(r'\b(?:not (?:offered|listed|verified|available)|unavailable)\b',wording,__import__('re').I):continue
             nearby.append(state_distance(entry,entry.get('locations',[])))
@@ -402,7 +402,7 @@ def search(raw,path=DB):
             'no_exam_price':no_exam_price,'fallback':fallback,'results_heading':alternative_heading or (f"Nothing within {s['radius']} miles. Nearest options:" if fallback else ''),
             'program_heading':'Programs available in '+next((c['name'] for c in lookup(selected_state or '') if c['kind']=='state'),selected_state or ''),
             'unlocated_offer_count':len(unlocated),
-            'program_entries':[e for e in data['entries'] if (spatial or statewide) and s['mod'] and s['body'].strip() and e.get('location_type')=='program' and covers(e,selected_state) and e['name'] not in {o['entry']['name'] for o in programs}]}
+            'program_entries':[e for e in data['entries'] if (statewide or (spatial and s['mod'] and s['body'].strip())) and e.get('location_type')=='program' and covers(e,selected_state) and e['name'] not in {o['entry']['name'] for o in programs}]}
 
 def agent(message,raw,path=DB):
     import re
@@ -484,7 +484,7 @@ def save_conversation(member,data,path=DB):
     if data.get('private'):raise ValueError('Private conversations cannot be persisted')
     ident=data.get('id') or str(uuid.uuid4());messages=data.get('messages',[])
     if not isinstance(messages,list) or not 0<=len(messages)<=200:raise ValueError('History must contain at most 200 messages')
-    if not messages and not all(data.get('search',{}).get(k) for k in ('mod','body','location')):raise ValueError('A saved search needs exam, body part and location')
+    if not messages and not data.get('search',{}).get('location'):raise ValueError('A saved search needs a location')
     for m in messages:
         if not isinstance(m,dict) or m.get('role') not in ('user','assistant') or not isinstance(m.get('text'),str) or len(m['text'])>4000:raise ValueError('Invalid message')
     result=search(data.get('search',{}),path); now=time.time()

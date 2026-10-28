@@ -191,13 +191,21 @@ def catalog(path=DB):
 LOCATION_CHOICES = [('Cincinnati, OH','Cincinnati'),('Louisville, KY','Louisville'),('Lexington, KY','Lexington'),('Philadelphia, PA','Philadelphia'),('Boise, ID','Boise'),('Lawrenceville, GA','Lawrenceville'),('Auburn, WA','Auburn'),('Spanish Fork, UT','Spanish Fork'),('South Burlington, VT','South Burlington'),('Wisconsin','Wisconsin'),('National','National')]
 
 def location_choices(entries):
+    from geo import lookup, state_choices
     choices = list(LOCATION_CHOICES)
+    choices.extend((name, name) for name in state_choices())
     for entry in entries:
+        for loc in entry.get('locations', []):
+            city, st = loc.get('city', '').strip(), loc.get('state', '').strip()
+            if city and st: choices.append((f'{city}, {st}', city))
         state = entry['states'].strip()
         if len(state) != 2: continue
         for city in entry['area'].split('/'):
             city = city.strip()
-            if city: choices.append((f'{city}, {state}', city))
+            if city:
+                for candidate in lookup(f'{city}, {state}'):
+                    if candidate['match'] == 'exact':
+                        choices.append((candidate['label'], candidate['name']))
     return list(dict.fromkeys(choices))
 
 def location_options(value, choices=None):
@@ -217,7 +225,7 @@ def clean_search(raw):
     if not 0<=budget<=1000000: raise ValueError('Invalid budget')
     radius=raw.get('radius',50)
     if isinstance(radius,bool) or radius not in (25,50,100,250):raise ValueError('Choose a radius of 25, 50, 100 or 250 miles')
-    return {'radius':radius,'mod':mod,'contrast':contrast,'type':typ,'body':str(raw.get('body',''))[:100],
+    return {'scope':'state' if raw.get('scope')=='state' else 'radius','radius':radius,'mod':mod,'contrast':contrast,'type':typ,'body':str(raw.get('body',''))[:100],
             'location':str(raw.get('location',''))[:120].strip(),'budget':budget,
             'sort':raw.get('sort') if raw.get('sort') in ('price','scope') else 'distance',
             'selected':list(dict.fromkeys(x for x in raw.get('selected',[]) if isinstance(x,str)))[:3]}
@@ -253,6 +261,7 @@ def search(raw,path=DB):
         notice='Choose a location below. No location has been selected automatically.'
     elif candidates:
         resolved=candidates[0]
+        notice=resolved.get('notice', '')
         selected_state=resolved['state']
         s['location']=resolved['label']
         if resolved['kind']=='zcta':
@@ -263,7 +272,18 @@ def search(raw,path=DB):
     elif location:
         location='__unknown_location__'
         notice='We could not find that place. Please enter a five-digit ZIP code. Not every postal ZIP has a Census ZIP area.'
-    spatial=bool(resolved and resolved['kind'] in ('place','zcta'))
+    statewide=bool(resolved and s['scope']=='state')
+    spatial=bool(resolved and resolved['kind'] in ('place','zcta') and not statewide)
+    def in_state(entry):
+        return covers(entry,selected_state) or any(loc.get('state')==selected_state for loc in entry.get('locations',[]))
+    def state_distance(item, locations):
+        match=nearest(resolved,[loc for loc in locations if loc.get('state')==selected_state]) if resolved['kind']!='state' else None
+        return annotate(item,match) if match else dict(item)
+    if statewide:
+        location=selected_state.casefold()
+        state_name=next((c['name'] for c in lookup(selected_state) if c['kind']=='state'),selected_state)
+        notice=f'Showing indexed imaging centers across {state_name}. Exam and price filters still apply. '
+        if resolved['kind']!='state':notice+='Known distances are approximate straight-line miles from your searched location; centers without verified coordinates are also included.'
     programs=[]; unlocated=[]
     def same_exam(o):
         if o['mod']!=s['mod']:return False
@@ -275,9 +295,9 @@ def search(raw,path=DB):
         o=dict(original)
         if not s['mod'] or not s['body'].strip() or not location:continue
         e=o['entry']
-        if not spatial and selected_state and not covers(e,selected_state):continue
+        if not spatial and selected_state and not in_state(e):continue
         if not same_exam(o) or (s['type']!='all' and s['type']!=o['type']):continue
-        if not spatial and not (location=='national' or location in o['region'].casefold() or location in e['area'].casefold() or location in [x.strip().casefold() for x in e['states'].split(';')]):continue
+        if not spatial and not statewide and not (location=='national' or location in o['region'].casefold() or location in e['area'].casefold() or location in [x.strip().casefold() for x in e['states'].split(';')]):continue
         o['match_status']='Exact body-part and protocol applicability requires confirmation'
         o['budget_status']='Budget fit unconfirmed'
         if not s['budget']:o['budget_status']='No budget set'
@@ -290,6 +310,14 @@ def search(raw,path=DB):
             match=nearest(resolved,offer_locations(o))
             if not match:unlocated.append(o['id']);continue
             o=annotate(o,match)
+        if statewide:
+            if e.get('location_type')=='program':
+                programs.append(o)
+                continue
+            # Do not show a mapped price known to apply only outside this state.
+            price_locations=offer_locations(o)
+            if price_locations and not any(loc.get('state')==selected_state for loc in price_locations):continue
+            o=state_distance(o,price_locations)
         result.append(o)
     fallback=False; nearby=[]
     if spatial:
@@ -357,13 +385,24 @@ def search(raw,path=DB):
                 match=nearest(resolved,entry.get('locations',[]))
                 if match:quote_leads.append(annotate(entry,match))
             nearby=sorted(quote_leads,key=lambda e:e['_distance'])[:3]
+    if statewide:
+        represented={o['entry']['name'] for o in result}
+        for entry in data['entries']:
+            if not s['mod'] or not s['body'].strip() or entry.get('location_type')=='program' or not in_state(entry) or entry['name'] in represented:continue
+            wording=str(entry.get(s['mod'].lower(),'')).strip()
+            if not wording or wording.casefold() in ('n/a','none','no'):continue
+            if __import__('re').search(r'\b(?:not (?:offered|listed|verified|available)|unavailable)\b',wording,__import__('re').I):continue
+            nearby.append(state_distance(entry,entry.get('locations',[])))
+        result.sort(key=lambda o:(o.get('_distance',float('inf')),o['entry']['name']))
+        nearby.sort(key=lambda e:(e.get('_distance',float('inf')),e['name']))
+        alternative_heading=f'Imaging centers across {state_name}'
     if not spatial and s['sort']=='price':result.sort(key=lambda o:o['amount'] if o['type']=='fixed' and o['amount'] is not None else float('inf'))
     selected=set(o['id'] for o in result+programs);s['selected']=[x for x in s['selected'] if x in selected]
     return {'version':data['version'],'search':s,'offers':result,'count':len(result),'location_suggestions':suggestions if needs_choice else [],'location_notice':notice,'resolved_location':resolved,'programs':programs,'nearby_unpriced':nearby,
             'no_exam_price':no_exam_price,'fallback':fallback,'results_heading':alternative_heading or (f"Nothing within {s['radius']} miles. Nearest options:" if fallback else ''),
             'program_heading':'Programs available in '+next((c['name'] for c in lookup(selected_state or '') if c['kind']=='state'),selected_state or ''),
             'unlocated_offer_count':len(unlocated),
-            'program_entries':[e for e in data['entries'] if spatial and s['mod'] and s['body'].strip() and e.get('location_type')=='program' and covers(e,selected_state) and e['name'] not in {o['entry']['name'] for o in programs}]}
+            'program_entries':[e for e in data['entries'] if (spatial or statewide) and s['mod'] and s['body'].strip() and e.get('location_type')=='program' and covers(e,selected_state) and e['name'] not in {o['entry']['name'] for o in programs}]}
 
 def agent(message,raw,path=DB):
     import re
@@ -537,6 +576,7 @@ def guest_agent(token, ip, message, raw, conversation_id, limits, path=DB):
     # lock. Failed generation consumes the attempt (no retry/refund loophole).
     answer=agent(message,raw,path)
     return {**answer,'conversation_id':conversation_id,'usage':usage}
+
 
 
 

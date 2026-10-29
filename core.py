@@ -191,8 +191,8 @@ def catalog(path=DB):
 LOCATION_CHOICES = [('Cincinnati, OH','Cincinnati'),('Louisville, KY','Louisville'),('Lexington, KY','Lexington'),('Philadelphia, PA','Philadelphia'),('Boise, ID','Boise'),('Lawrenceville, GA','Lawrenceville'),('Auburn, WA','Auburn'),('Spanish Fork, UT','Spanish Fork'),('South Burlington, VT','South Burlington'),('Wisconsin','Wisconsin'),('National','National')]
 
 def location_choices(entries):
-    # Locations were resolved during import. Do not geocode all rows per request.
-    from geo import state_choices
+    # Enriched records have already resolved geography during import.
+    from geo import lookup, state_choices
     choices = list(LOCATION_CHOICES)
     choices.extend((name, name) for name in state_choices())
     for entry in entries:
@@ -201,6 +201,17 @@ def location_choices(entries):
             state = str(loc.get('state', '')).strip()
             if city and state:
                 choices.append((f'{city}, {state}', city))
+        # Preserve compatibility for legacy rows that predate import enrichment.
+        # Explicitly unresolved/program records must not repeat fuzzy lookup.
+        if 'location_type' not in entry:
+            state = str(entry.get('states', '')).strip()
+            if len(state) == 2:
+                for city in str(entry.get('area', '')).split('/'):
+                    city = city.strip()
+                    if city:
+                        for candidate in lookup(f'{city}, {state}'):
+                            if candidate['match'] == 'exact':
+                                choices.append((candidate['label'], candidate['name']))
     return list(dict.fromkeys(choices))
 
 

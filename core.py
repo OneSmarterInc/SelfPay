@@ -191,22 +191,18 @@ def catalog(path=DB):
 LOCATION_CHOICES = [('Cincinnati, OH','Cincinnati'),('Louisville, KY','Louisville'),('Lexington, KY','Lexington'),('Philadelphia, PA','Philadelphia'),('Boise, ID','Boise'),('Lawrenceville, GA','Lawrenceville'),('Auburn, WA','Auburn'),('Spanish Fork, UT','Spanish Fork'),('South Burlington, VT','South Burlington'),('Wisconsin','Wisconsin'),('National','National')]
 
 def location_choices(entries):
-    from geo import lookup, state_choices
+    # Locations were resolved during import. Do not geocode all rows per request.
+    from geo import state_choices
     choices = list(LOCATION_CHOICES)
     choices.extend((name, name) for name in state_choices())
     for entry in entries:
         for loc in entry.get('locations', []):
-            city, st = loc.get('city', '').strip(), loc.get('state', '').strip()
-            if city and st: choices.append((f'{city}, {st}', city))
-        state = entry['states'].strip()
-        if len(state) != 2: continue
-        for city in entry['area'].split('/'):
-            city = city.strip()
-            if city:
-                for candidate in lookup(f'{city}, {state}'):
-                    if candidate['match'] == 'exact':
-                        choices.append((candidate['label'], candidate['name']))
+            city = str(loc.get('city', '')).strip()
+            state = str(loc.get('state', '')).strip()
+            if city and state:
+                choices.append((f'{city}, {state}', city))
     return list(dict.fromkeys(choices))
+
 
 def location_options(value, choices=None):
     from difflib import SequenceMatcher
@@ -576,7 +572,3 @@ def guest_agent(token, ip, message, raw, conversation_id, limits, path=DB):
     # lock. Failed generation consumes the attempt (no retry/refund loophole).
     answer=agent(message,raw,path)
     return {**answer,'conversation_id':conversation_id,'usage':usage}
-
-
-
-

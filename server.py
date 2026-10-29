@@ -136,6 +136,10 @@ class Handler(BaseHTTPRequestHandler):
                 con.execute('DELETE FROM guest_usage WHERE session_hash=?',(key,))
                 con.execute('DELETE FROM sessions WHERE token_hash=?',(key,))
             return self.respond(200,{'ok':True},cookie=self.session_cookie())
+        if path=='/api/booking-test' and method=='GET':
+            with core.connect(db) as con:
+                row=con.execute("SELECT e.payload FROM entries e JOIN batches b ON b.id=e.batch_id WHERE e.batch_id=? AND e.entry_key=? AND b.status='test'",('booking-test-20261029','gitesh-test')).fetchone()
+            return self.respond(200,{'center':json.loads(row['payload']) if row else None})
         if path=='/api/catalog' and method=='GET':return self.respond(200,core.catalog(db))
         if path=='/api/search' and method=='POST':return self.respond(200,core.search(self.payload(),db))
         if path=='/api/guest-usage' and method=='GET':
@@ -207,6 +211,7 @@ if __name__=='__main__':
     try:server.serve_forever()
     except KeyboardInterrupt:pass
     finally:server.server_close()
+
 
 
 

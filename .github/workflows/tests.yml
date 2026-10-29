@@ -24,6 +24,8 @@ jobs:
           sudo systemctl start postgresql.service
           sudo -u postgres psql -c "CREATE USER selfpay WITH PASSWORD 'selfpay-test';"
           sudo -u postgres psql -c "CREATE DATABASE selfpay_test OWNER selfpay;"
+      - name: Verify AWS deployment folders match source
+        run: python tools/sync_aws_folders.py --check
       - name: Unit and functional tests (SQLite)
         run: python -m unittest discover -v
       - name: PostgreSQL integration tests

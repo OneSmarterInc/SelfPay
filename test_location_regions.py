@@ -35,6 +35,18 @@ class RegionSearchTests(unittest.TestCase):
         self.assertIn('Michigan', choices)
         self.assertIn('Illinois', choices)
 
+    def test_large_enriched_catalog_does_not_repeat_lookup(self):
+        entries = [
+            dict(states='IL', area='Chicago suburbs', location_type='site',
+                 locations=[dict(city='Chicago', state='IL')]),
+            dict(states='IL', area='Unknown location', location_type='unresolved', locations=[]),
+            dict(states='IL', area='Nationwide', location_type='program', locations=[]),
+        ] * 1000
+        with patch.object(geo, 'lookup', side_effect=AssertionError('Repeated geocoding')):
+            choices = core.location_choices(entries)
+        self.assertEqual(choices.count(('Chicago, IL', 'Chicago')), 1)
+        self.assertIn(('Illinois', 'Illinois'), choices)
+
     def test_statewide_keeps_distant_and_unmapped_centers(self):
         def entry(name, state, lat=None):
             return dict(name=name, states=state, area=name, mri='Available', location_type='site', locations=[] if lat is None else [dict(state=state, latitude=lat, longitude=-87.63, precision='city')])

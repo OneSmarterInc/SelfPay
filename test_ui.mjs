@@ -26,7 +26,7 @@ const fetch=async(url,options={})=>{
   }else if(url==='/api/logout'){signedIn=false;body={ok:true}}
   return {ok:status<400,status,json:async()=>body};
 };
-const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeout(){},document:{getElementById:node,querySelectorAll:()=>[]}});
+const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeout(){},document:{getElementById:node,querySelectorAll:()=>[],addEventListener(){}}});
 {
   vm.runInContext(fs.readFileSync('static/app.js','utf8'),ctx);
   await vm.runInContext('bootReady',ctx);
@@ -165,3 +165,22 @@ assert.match(node('app').innerHTML,/Enter a city and state or ZIP code/);
 assert.doesNotMatch(node('app').innerHTML,/No reviewed match/);
 vm.runInContext("state.locationUnresolved=false;state.location='Baltimore, MD';render()",ctx);
 assert.doesNotMatch(node('app').innerHTML,/Choose your city and state/);
+
+
+const testCenter={name:'Synthetic & Center',email:'test@example.test',appointment_email_approved:true,test_only:true};
+ctx.testCenter=testCenter;
+assert.doesNotMatch(vm.runInContext("contactActions({entry:{name:'No email'}})",ctx),/Book appointment/);
+assert.match(vm.runInContext('contactActions({entry:testCenter})',ctx),/Book appointment/);
+assert.equal(vm.runInContext("appointmentEmail({email:'billing@example.test',email_scope:'Billing, not scheduling'})",ctx),'');
+assert.equal(vm.runInContext("appointmentEmail({email:'x@example.test?bcc=bad@example.test',appointment_email_approved:true})",ctx),'');
+ctx.formValues={name:'Test & Name',phone:'5551234567',date:'2099-01-01',time:'10:30',zone:'Eastern',service:'MRI'};
+const draft=vm.runInContext('appointmentDraft(testCenter,formValues)',ctx);
+assert.match(draft.uri,/^mailto:test%40example.test\?subject=/);
+const params=new URLSearchParams(draft.uri.split('?')[1]);
+assert.equal(params.get('subject'),'Appointment request — Synthetic & Center');
+assert.match(params.get('body'),/Test & Name/);assert.match(params.get('body'),/2099-01-01/);assert.match(params.get('body'),/10:30 \(Eastern time\)/);
+assert.equal(params.size,2);
+assert.throws(()=>vm.runInContext("appointmentDraft(testCenter,{...formValues,date:'2000-01-01'})",ctx));
+vm.runInContext('appointmentForm(testCenter)',ctx);
+assert.match(node('modal').innerHTML,/Open email app/);assert.match(node('modal').innerHTML,/No MySelfPay account is needed/);
+console.log('Appointment mailto checks passed; no email sent.');

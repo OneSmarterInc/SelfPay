@@ -15,7 +15,7 @@ function phoneOf(e){const m=String(e?.coverage||'').match(/\(?(\d{3})\)?[-. ]?(\
 function addressOf(e){const c=String(e?.coverage||'').replace(/\(?\d{3}\)?[-. ]?\d{3}[-. ]\d{4}/g,'').replace(/[.\s]+$/,'').trim();return /^\d+\s+\S/.test(c)?c:''}
 function websiteOf(e){return /^https:\/\//.test(e?.source||'')?e.source:''}
 function telLink(ph,cls,label){return `<a${cls?` class="${cls}"`:''} href="tel:+1${ph.replace(/-/g,'')}">${esc(label||ph)}</a>`}
-function contactActions(o){const e=o.entry,ph=phoneOf(e),addr=addressOf(e),web=websiteOf(e);if(!ph&&!addr&&!web)return '';return `<div class="card-actions" aria-label="Contact ${esc(e.name)}">${ph?telLink(ph,'call','Call '+ph):''}${web?`<a href="${esc(web)}" target="_blank" rel="noopener noreferrer">Website</a>`:''}${addr?`<a href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(String(e.name).split(' — ')[0]+', '+addr))}" target="_blank" rel="noopener noreferrer">Directions</a>`:''}</div>`}
+function contactActions(o){const e=o.entry,ph=phoneOf(e),addr=addressOf(e),web=websiteOf(e);if(!ph&&!addr&&!web&&!appointmentEmail(e))return '';return `<div class="card-actions" aria-label="Contact ${esc(e.name)}">${ph?telLink(ph,'call','Call '+ph):''}${web?`<a href="${esc(web)}" target="_blank" rel="noopener noreferrer">Website</a>`:''}${appointmentEmail(e)?`<button type="button" data-appointment="${esc(e.name)}">Book appointment</button>`:''}${addr?`<a href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(String(e.name).split(' — ')[0]+', '+addr))}" target="_blank" rel="noopener noreferrer">Directions</a>`:''}</div>`}
 function cardFacts(o){const facts=[`<div class="fact"><strong>Price includes</strong><br>${esc(o.included)}</div>`];if(o.order&&!/^(Review the facility restrictions|Not established in this directory)/i.test(o.order))facts.push(`<div class="fact"><strong>Order requirements</strong><br>${esc(o.order)}</div>`);if(state.budget)facts.push(`<div class="fact"><strong>Budget check</strong><br>${budgetGroup(o)}</div>`);return `<div class="facts">${facts.join('')}</div>`}
 function card(o){return `<article class="card">${o.reviewed_alternative?`<div class="notice"><strong>Reviewed alternative · filters differ</strong><p>${esc(o.match_status)}</p><ul>${(o.filter_differences||[]).map(d=>`<li>${esc(d)}</li>`).join('')}</ul></div>`:''}<div class="row between"><span class="badge ${o.type==='fixed'?'':'warn'}">${typeLabel(o)}</span><label class="small"><input style="width:auto" type="checkbox" aria-label="Compare ${esc(o.entry.name)}" data-select="${o.id}" ${state.selected.includes(o.id)?'checked':''}> Compare</label></div><div class="row between" style="margin-top:16px"><div><h3>${esc(o.entry.name)}</h3><div class="muted small">${esc(o.region)} · ${esc(o.entry.entity)}</div><div class="small">${esc(distanceLabel(o))}</div></div><div class="price">${price(o)}</div></div><p class="scope">${esc(o.mod)} · ${esc(o.contrast==='unknown'?'Protocol unconfirmed':(o.contrast==='both'?'Without and with':o.contrast==='without'?'Without':'With')+' contrast')} · ${esc(o.scope)}</p>${cardFacts(o)}${contactActions(o)}<div class="row between"><span class="small muted">Source checked ${o.entry.checked.slice(0,10)} · Reconfirm before arranging care</span><button data-detail="${o.id}">View details</button></div></article>`}
 function locationPending(){return !!(state.locationSuggestions?.length||state.locationUnresolved)}
@@ -225,7 +225,7 @@ const PAGES={
  'terms':{title:'Terms',body:()=>`<p>MySelfPay lists self-pay prices that facilities publish. Prices, eligibility and availability are set by each facility and can change. Confirm them with the facility before your exam.</p><p>MySelfPay doesn’t provide medical advice. Your clinician decides which exam you need.</p><p>Facility names and prices belong to their owners and are shown for comparison.</p><p>Use of the site is at your own discretion.</p>`},
 };
 function infoPage(key){const page=PAGES[key];if(!page)return false;updateNavigation();pageTop('page:'+key);document.title=`${page.title} · MySelfPay`;$('app').innerHTML=`<article class="panel info-page"><h1>${esc(page.title)}</h1>${page.body()}<p class="actions"><a href="/">Back to MySelfPay</a></p></article>`;return true}
-function routeHash(){const legacy=String(globalThis.location?.hash||'').slice(1);const destinations={privacy:'/privacy-terms',terms:'/privacy-terms',contact:'/contact','for-imaging-centers':'/for-imaging-centers'};if(destinations[legacy]){globalThis.location.replace(destinations[legacy]);return true;}const key=decodeURIComponent(String(globalThis.location?.hash||'').slice(1));if(PAGES[key])return infoPage(key);document.title='MySelfPay · Find self-pay MRI and CT';return false}
+function routeHash(){if(globalThis.location?.hash==='#booking-test'){openBookingTest().catch(e=>toast(e.message));return true;}const legacy=String(globalThis.location?.hash||'').slice(1);const destinations={privacy:'/privacy-terms',terms:'/privacy-terms',contact:'/contact','for-imaging-centers':'/for-imaging-centers'};if(destinations[legacy]){globalThis.location.replace(destinations[legacy]);return true;}const key=decodeURIComponent(String(globalThis.location?.hash||'').slice(1));if(PAGES[key])return infoPage(key);document.title='MySelfPay · Find self-pay MRI and CT';return false}
 globalThis.addEventListener?.('hashchange',()=>{if(!routeHash()){if(account&&catalogReady)render();else welcome()}});
 const bootReady=(async()=>{try{const r=await api('/me');account=r.member;csrf=r.csrf;await start()}catch(e){if(account)loadFailure(e);else welcome()}})();
 bootReady.then(()=>routeHash());
@@ -248,3 +248,50 @@ function guestChatControls(){
 
 
 
+
+
+// Compose locally: never transmit form values to the application server.
+function appointmentEmail(center){
+ const scope=String(center.email_scope||'');
+ if(center.appointment_email_approved!==true&&(!/scheduling|appointments?/i.test(scope)||/not.*schedul|billing|financial|business|referral|prescriptions|feedback|advocacy|privacy|media/i.test(scope)))return '';
+ const address=String(center.email||'').trim();
+ return /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(address)&&address.length<=254?address:'';
+}
+function appointmentDraft(center,values){
+ const recipient=appointmentEmail(center);
+ if(!recipient)throw new Error('This center has no appointment email. Please contact it directly.');
+ const name=String(values.name||'').trim(),phone=String(values.phone||'').trim();
+ if(!name||name.length>100||/[\r\n]/.test(name)||!/[0-9]{3}/.test(phone)||phone.length>30)throw new Error('Enter your name and a contact phone number.');
+ const date=String(values.date||''),time=String(values.time||''),zone=String(values.zone||'');
+ const zones=['Eastern','Central','Mountain','Arizona','Pacific','Alaska','Hawaii'];
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time)||!zones.includes(zone))throw new Error('Choose a date, time and the center’s time zone.');
+ const today=new Date();const localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
+ if(date<localDate||!Number.isFinite(Date.parse(date+'T'+time)))throw new Error('Choose a valid date today or later.');
+ if(!['MRI','CT','Other imaging','Please contact me'].includes(values.service))throw new Error('Choose a service.');
+ const subject=`Appointment request — ${center.name}`;
+ const body=`Hello ${center.name},\r\n\r\nI would like to request an imaging appointment.\r\nName: ${name}\r\nPhone: ${phone}\r\nPreferred date: ${date}\r\nPreferred time: ${time} (${zone} time)\r\nService: ${values.service}\r\nLocation: ${center.coverage||center.area||'Please confirm'}\r\n\r\nPlease reply to this email to confirm availability, the location, referral requirements, preparation and total self-pay price. I understand this is a request, not a confirmed booking.\r\n\r\nThank you.\r\n${name}`;
+ return {subject,body,uri:`mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`};
+}
+function appointmentForm(center){
+ modal(`<h2>Book appointment</h2><p><strong>${esc(center.name)}</strong>${center.test_only?' — TEST ONLY, not a real facility':''}</p><p>Fill in your preferred time. Your email app will open a draft addressed to ${esc(appointmentEmail(center))}. Review it and press Send there. No MySelfPay account is needed.</p><form id="appointmentForm"><label>Your name<input id="appointmentName" autocomplete="name" maxlength="100" required></label><label>Phone<input id="appointmentPhone" type="tel" autocomplete="tel" maxlength="30" required></label><label>Preferred date<input id="appointmentDate" type="date" required></label><label>Preferred time<input id="appointmentTime" type="time" required></label><label>Center’s time zone<select id="appointmentZone" required><option value="">Choose time zone</option>${['Eastern','Central','Mountain','Arizona','Pacific','Alaska','Hawaii'].map(z=>`<option>${z}</option>`).join('')}</select></label><label>Service<select id="appointmentService"><option>Please contact me</option><option>MRI</option><option>CT</option><option>Other imaging</option></select></label><p>Do not include diagnoses, insurance details or medical records. The center must confirm your appointment.</p><button type="submit">Open email app</button><p id="appointmentStatus" role="status"></p><div id="appointmentFallback"></div></form>`);
+ $('appointmentForm').onsubmit=event=>{
+  event.preventDefault();
+  try{
+   const draft=appointmentDraft(center,{name:$('appointmentName').value,phone:$('appointmentPhone').value,date:$('appointmentDate').value,time:$('appointmentTime').value,zone:$('appointmentZone').value,service:$('appointmentService').value});
+   $('appointmentStatus').textContent='Review the draft in your email app and press Send. MySelfPay cannot confirm whether it was sent. If no app opens, copy the details below into your email.';
+   $('appointmentFallback').innerHTML=`<p>To: ${esc(appointmentEmail(center))}</p><p>Subject: ${esc(draft.subject)}</p><label>Email message<textarea rows="10" readonly>${esc(draft.body)}</textarea></label><a href="${esc(draft.uri)}">Open email app again</a>`;
+   globalThis.location.href=draft.uri;
+  }catch(error){$('appointmentStatus').textContent=error.message;}
+ };
+}
+document.addEventListener('click',event=>{
+ const button=event.target.closest?.('[data-appointment]');if(!button)return;
+ const center=DIRECTORY.find(e=>e.name===button.dataset.appointment);
+ if(center&&appointmentEmail(center))appointmentForm(center);
+});
+async function openBookingTest(){
+ if(!account)await signInGuest();
+ const {center}=await api('/booking-test');
+ if(!center){modal('<h2>Booking test</h2><p>The test center has not been added to this database yet.</p>');return;}
+ appointmentForm(center);
+}

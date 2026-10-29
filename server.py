@@ -8,6 +8,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 import core
+import booking
 from tools.generate_app_config import website_url
 
 # Per-minute limits. Keying by email+IP (not email alone) stops one attacker locking out a member;
@@ -115,6 +116,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(200,(core.ROOT/'static'/name).read_bytes(),content_type=mime)
         db=self.database_path()
         if path=='/api/directory-summary' and method=='GET':return self.respond(200,core.directory_summary(db))
+        if path in ('/api/booking/account/start','/api/booking/account/verify') and method=='POST':
+            if not self.login_allowed('booking-auth:'+self.client_ip(),10):return self.respond(429,{'error':'Too many attempts. Please wait a minute.'})
+            data=self.payload()
+            if path.endswith('/start'):return self.respond(200,booking.start_account(data,db))
+            result=booking.verify_account(data,db);token=result.pop('token')
+            return self.respond(200,result,cookie=self.session_cookie(token))
         if path in ('/api/register','/api/login','/api/password'):
             return self.respond(410,{'error':'Use Sign in as guest. Email and password sign-in is disabled.'})
         if path=='/api/guest' and method=='POST':
@@ -130,6 +137,9 @@ class Handler(BaseHTTPRequestHandler):
         if method!='GET' and not secrets.compare_digest(self.request_header('X-CSRF-Token',''),member['csrf']):
             return self.respond(403,{'error':'CSRF token required'})
         if path=='/api/me' and method=='GET':return self.respond(200,{'member':{k:v for k,v in member.items() if k!='csrf'},'csrf':member['csrf']})
+        if path=='/api/booking/requests' and method=='POST':
+            if not self.login_allowed('booking-submit:'+member['id'],10):return self.respond(429,{'error':'Too many attempts. Please wait a minute.'})
+            return self.respond(200,booking.submit(member,self.payload(),db))
         if path=='/api/logout' and method=='POST':
             with core.connect(db) as con:
                 key=hashlib.sha256(self.token().encode()).hexdigest()
@@ -207,6 +217,7 @@ if __name__=='__main__':
     try:server.serve_forever()
     except KeyboardInterrupt:pass
     finally:server.server_close()
+
 
 
 

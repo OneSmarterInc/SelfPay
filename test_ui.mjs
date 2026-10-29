@@ -26,7 +26,7 @@ const fetch=async(url,options={})=>{
   }else if(url==='/api/logout'){signedIn=false;body={ok:true}}
   return {ok:status<400,status,json:async()=>body};
 };
-const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeout(){},document:{getElementById:node,querySelectorAll:()=>[]}});
+const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeout(){},document:{getElementById:node,querySelectorAll:()=>[],addEventListener(){}}});
 {
   vm.runInContext(fs.readFileSync('static/app.js','utf8'),ctx);
   await vm.runInContext('bootReady',ctx);
@@ -165,3 +165,11 @@ assert.match(node('app').innerHTML,/Enter a city and state or ZIP code/);
 assert.doesNotMatch(node('app').innerHTML,/No reviewed match/);
 vm.runInContext("state.locationUnresolved=false;state.location='Baltimore, MD';render()",ctx);
 assert.doesNotMatch(node('app').innerHTML,/Choose your city and state/);
+
+// Booking is absent without a server-approved recipient key.
+assert.doesNotMatch(vm.runInContext("contactActions({entry:{name:'X',source:'https://example.test'}})",ctx),/Book appointment/);
+assert.match(vm.runInContext("contactActions({entry:{name:'X',source:'https://example.test',booking_entry_key:'approved'}})",ctx),/data-book="approved"/);
+vm.runInContext("bookingAccount({name:'Synthetic Center',booking_entry_key:'approved'})",ctx);
+assert.match(node('modal').innerHTML,/Create an account or sign in/);
+assert.match(node('modal').innerHTML,/Verify your email/);
+

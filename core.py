@@ -180,6 +180,9 @@ def catalog(path=DB):
     with connect(path) as db:
         batch=active_batch(db)
         entries={r['entry_key']:json.loads(r['payload']) for r in db.execute('SELECT * FROM entries WHERE batch_id=?',(batch,))}
+        import booking
+        for entry_key, entry in entries.items():
+            if booking.contact(entry_key,entry):entry['booking_entry_key']=entry_key
         offers=[]
         for r in db.execute('SELECT * FROM offers WHERE batch_id=?',(batch,)):
             o=json.loads(r['payload']);o['entry']=entries[r['entry_key']];o['version']=batch
@@ -576,6 +579,7 @@ def guest_agent(token, ip, message, raw, conversation_id, limits, path=DB):
     # lock. Failed generation consumes the attempt (no retry/refund loophole).
     answer=agent(message,raw,path)
     return {**answer,'conversation_id':conversation_id,'usage':usage}
+
 
 
 

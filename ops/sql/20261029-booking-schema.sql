@@ -1,0 +1,9 @@
+
+CREATE TABLE booking_codes (
+ id TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL,
+ code_hash TEXT NOT NULL, expires DOUBLE PRECISION NOT NULL,
+ attempts INTEGER NOT NULL DEFAULT 0, consumed INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE booking_requests (
+ id TEXT PRIMARY KEY, member_id TEXT NOT NULL REFERENCES members(id),
+ entry_key TEXT NOT NULL, payload_hash TEXT NOT NULL,
+ status TEXT NOT NULL, created DOUBLE PRECISION NOT NULL);

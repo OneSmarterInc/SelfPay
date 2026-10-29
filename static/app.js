@@ -15,7 +15,7 @@ function phoneOf(e){const m=String(e?.coverage||'').match(/\(?(\d{3})\)?[-. ]?(\
 function addressOf(e){const c=String(e?.coverage||'').replace(/\(?\d{3}\)?[-. ]?\d{3}[-. ]\d{4}/g,'').replace(/[.\s]+$/,'').trim();return /^\d+\s+\S/.test(c)?c:''}
 function websiteOf(e){return /^https:\/\//.test(e?.source||'')?e.source:''}
 function telLink(ph,cls,label){return `<a${cls?` class="${cls}"`:''} href="tel:+1${ph.replace(/-/g,'')}">${esc(label||ph)}</a>`}
-function contactActions(o){const e=o.entry,ph=phoneOf(e),addr=addressOf(e),web=websiteOf(e);if(!ph&&!addr&&!web)return '';return `<div class="card-actions" aria-label="Contact ${esc(e.name)}">${ph?telLink(ph,'call','Call '+ph):''}${web?`<a href="${esc(web)}" target="_blank" rel="noopener noreferrer">Website</a>`:''}${addr?`<a href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(String(e.name).split(' — ')[0]+', '+addr))}" target="_blank" rel="noopener noreferrer">Directions</a>`:''}</div>`}
+function contactActions(o){const e=o.entry,ph=phoneOf(e),addr=addressOf(e),web=websiteOf(e);if(!ph&&!addr&&!web&&!e.booking_entry_key)return '';return `<div class="card-actions" aria-label="Contact ${esc(e.name)}">${ph?telLink(ph,'call','Call '+ph):''}${web?`<a href="${esc(web)}" target="_blank" rel="noopener noreferrer">Website</a>`:''}${e.booking_entry_key?`<button type="button" data-book="${esc(e.booking_entry_key)}">Book appointment</button>`:''}${addr?`<a href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(String(e.name).split(' — ')[0]+', '+addr))}" target="_blank" rel="noopener noreferrer">Directions</a>`:''}</div>`}
 function cardFacts(o){const facts=[`<div class="fact"><strong>Price includes</strong><br>${esc(o.included)}</div>`];if(o.order&&!/^(Review the facility restrictions|Not established in this directory)/i.test(o.order))facts.push(`<div class="fact"><strong>Order requirements</strong><br>${esc(o.order)}</div>`);if(state.budget)facts.push(`<div class="fact"><strong>Budget check</strong><br>${budgetGroup(o)}</div>`);return `<div class="facts">${facts.join('')}</div>`}
 function card(o){return `<article class="card">${o.reviewed_alternative?`<div class="notice"><strong>Reviewed alternative · filters differ</strong><p>${esc(o.match_status)}</p><ul>${(o.filter_differences||[]).map(d=>`<li>${esc(d)}</li>`).join('')}</ul></div>`:''}<div class="row between"><span class="badge ${o.type==='fixed'?'':'warn'}">${typeLabel(o)}</span><label class="small"><input style="width:auto" type="checkbox" aria-label="Compare ${esc(o.entry.name)}" data-select="${o.id}" ${state.selected.includes(o.id)?'checked':''}> Compare</label></div><div class="row between" style="margin-top:16px"><div><h3>${esc(o.entry.name)}</h3><div class="muted small">${esc(o.region)} · ${esc(o.entry.entity)}</div><div class="small">${esc(distanceLabel(o))}</div></div><div class="price">${price(o)}</div></div><p class="scope">${esc(o.mod)} · ${esc(o.contrast==='unknown'?'Protocol unconfirmed':(o.contrast==='both'?'Without and with':o.contrast==='without'?'Without':'With')+' contrast')} · ${esc(o.scope)}</p>${cardFacts(o)}${contactActions(o)}<div class="row between"><span class="small muted">Source checked ${o.entry.checked.slice(0,10)} · Reconfirm before arranging care</span><button data-detail="${o.id}">View details</button></div></article>`}
 function locationPending(){return !!(state.locationSuggestions?.length||state.locationUnresolved)}
@@ -247,4 +247,43 @@ function guestChatControls(){
 
 
 
+
+
+
+// Delegated handler covers priced cards, quote-only centers and future card rerenders.
+document.addEventListener('click',safe(async event=>{
+ const button=event.target.closest?.('[data-book]');
+ if(!button)return;
+ const center=DIRECTORY.find(e=>e.booking_entry_key===button.dataset.book);
+ if(!center)return toast('This center is no longer available. Refresh the search.');
+ if(account?.tenant!=='booking')bookingAccount(center);else bookingForm(center);
+}));
+function bookingAccount(center){
+ if($('modal').open)$('modal').close();
+ modal('<h2>Create an account or sign in</h2><p>You are browsing as a guest. Verify your email to send an appointment request. New users get an account after verification; existing users are signed in.</p><form id="bookingAccount"><label>Your name<input id="bookingName" autocomplete="name" maxlength="100" required></label><label>Email<input id="bookingEmail" type="email" autocomplete="email" maxlength="254" required></label><label><input id="bookingTerms" type="checkbox" required> I accept the <a href="/privacy-terms" target="_blank" rel="noopener">Terms & Privacy</a>.</label><p id="bookingError" role="status"></p><button type="submit">Send sign-in code</button></form>');
+ $('bookingAccount').onsubmit=async e=>{
+  e.preventDefault();const button=e.target.querySelector('button');button.disabled=true;
+  try{
+   const r=await api('/booking/account/start',{name:$('bookingName').value,email:$('bookingEmail').value,consent:$('bookingTerms').checked});
+   $('modal').close();modal('<h2>Verify your email</h2><p>Enter the six-digit code sent to your email. It expires in 10 minutes.</p><form id="bookingVerify"><label>Code<input id="bookingCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label><p id="bookingError" role="status"></p><button type="submit">Verify and continue</button></form>');
+   $('bookingVerify').onsubmit=async event=>{
+    event.preventDefault();const b=event.target.querySelector('button');b.disabled=true;
+    try{const auth=await api('/booking/account/verify',{challenge_id:r.challenge_id,code:$('bookingCode').value});account=auth.member;csrf=auth.csrf;state.member=account.name;state.private=true;state.savedId=null;epoch++;$('modal').close();render();bookingForm(center);}
+    catch(error){$('bookingError').textContent=error.message;b.disabled=false;}
+   };
+  }catch(error){$('bookingError').textContent=error.message;button.disabled=false;}
+ };
+}
+function bookingForm(center){
+ if($('modal').open)$('modal').close();
+ const requestId=crypto.randomUUID();
+ modal(`<h2>Request an appointment</h2><p><strong>${esc(center.name)}</strong></p><p>${esc(center.coverage||center.area)}</p><p>This sends your preferred time to the center. The center must confirm your appointment.</p><form id="appointmentForm"><label>Your name<input id="appointmentName" autocomplete="name" maxlength="100" value="${esc(account.name)}" required></label><p>Reply email: ${esc(account.email)}</p><label>Phone<input id="appointmentPhone" type="tel" autocomplete="tel" maxlength="30" required></label><label>Preferred date and time<input id="appointmentTime" type="datetime-local" required></label><label>Center’s time zone<select id="appointmentZone" required><option value="">Choose time zone</option>${[['America/New_York','Eastern'],['America/Chicago','Central'],['America/Denver','Mountain'],['America/Phoenix','Arizona'],['America/Los_Angeles','Pacific'],['America/Anchorage','Alaska'],['Pacific/Honolulu','Hawaii']].map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select></label><label>Service<select id="appointmentService"><option>Please contact me</option><option>MRI</option><option>CT</option><option>Other imaging</option></select></label><p>Please do not include diagnoses, insurance details, or medical records.</p><label><input id="appointmentConsent" type="checkbox" required> Send my name, email, phone, service and preferred time to this center by email. I understand this is a request, not a confirmed appointment.</label><p id="appointmentStatus" role="status"></p><button type="submit">Send appointment request</button></form>`);
+ $('appointmentForm').onsubmit=async event=>{
+  event.preventDefault();const b=event.target.querySelector('button');b.disabled=true;
+  try{
+   const r=await api('/booking/requests',{request_id:requestId,entry_key:center.booking_entry_key,name:$('appointmentName').value,phone:$('appointmentPhone').value,datetime:$('appointmentTime').value,timezone:$('appointmentZone').value,service:$('appointmentService').value,consent:$('appointmentConsent').checked});
+   $('appointmentStatus').textContent=r.status==='email_accepted'?'Your request was accepted by our email service. Wait for the center to confirm availability.':'We cannot confirm email delivery. Please contact the center directly before sending another request.';
+  }catch(error){$('appointmentStatus').textContent=error.message;b.disabled=false;}
+ };
+}
 

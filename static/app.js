@@ -253,7 +253,7 @@ function guestChatControls(){
 // Compose locally: never transmit form values to the application server.
 function appointmentEmail(center){
  const scope=String(center.email_scope||'');
- if(center.appointment_email_approved!==true&&(!/scheduling|appointments?/i.test(scope)||/not.*schedul|billing|financial|business|referral|prescriptions|feedback|advocacy|privacy|media/i.test(scope)))return '';
+ if(center.appointment_email_approved!==true&&(!/scheduling|appointments?/i.test(scope)||/not (?:intended for |for )?(?:patient |branch |local )?schedul|not intended for prescriptions|billing|financial|business|referral|prescriptions|feedback|advocacy|privacy|media/i.test(scope)))return '';
  const address=String(center.email||'').trim();
  return /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(address)&&address.length<=254?address:'';
 }

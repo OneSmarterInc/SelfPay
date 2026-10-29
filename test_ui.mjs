@@ -184,3 +184,5 @@ assert.throws(()=>vm.runInContext("appointmentDraft(testCenter,{...formValues,da
 vm.runInContext('appointmentForm(testCenter)',ctx);
 assert.match(node('modal').innerHTML,/Open email app/);assert.match(node('modal').innerHTML,/No MySelfPay account is needed/);
 console.log('Appointment mailto checks passed; no email sent.');
+
+assert.equal(vm.runInContext("appointmentEmail({email:'appointments@example.test',email_scope:'Shared clinical/scheduling contact; not branch-specific. For scheduling questions.'})",ctx),'appointments@example.test');

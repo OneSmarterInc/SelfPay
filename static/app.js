@@ -69,7 +69,26 @@ function initialSearch(){const q=state.location.trim().toLowerCase();const leads
 function groupedCards(found){return (state.resultsHeading?`<h2>${esc(state.resultsHeading)}</h2>`:'')+found.map(card).join('')+((state.programs?.length||state.programEntries?.length)?`<h2>${esc(state.programHeading)}</h2>`+state.programs.map(card).join('')+(state.programEntries||[]).map(e=>`<article class="card"><h3>${esc(e.name)}</h3><p>Confirm service availability and request a quote.</p>${contactActions({entry:e})||`<a href="${esc(e.source)}" target="_blank" rel="noopener noreferrer">Program website</a>`}</article>`).join(''):'')+(state.nearbyUnpriced?.length?'<h2>Facilities to contact for a quote</h2><p>Confirm the ordered exam, eligibility and total directly with the facility.</p>'+state.nearbyUnpriced.map(e=>`<article class="card"><h3>${esc(e.name)}</h3><p>${esc(distanceLabel(e))}</p><strong>Call for a self-pay price</strong>${contactActions({entry:e})}</article>`).join(''):'')}
 
 function request(o){const ph=phoneOf(o.entry),exam=[state.body,o.mod].filter(Boolean).join(' ')||o.mod;modal(`<h2>Ask for a self-pay price</h2><p>${esc(o.entry.name)}</p>${ph?`<p class="card-actions">${telLink(ph,'call','Call '+ph)}</p>`:'<p>Use the facility website to reach them.</p>'}<p>When you call, say you are paying yourself and ask for the all-in price for your ${esc(exam)}${state.contrast&&state.contrast!=='unknown'?` (${esc(contrastLabel(state.contrast).toLowerCase())})`:''}. Have your doctor’s order nearby.</p><h3>Questions to ask</h3><ul class="checklist">${questions(o).map(q=>`<li>${esc(q)}</li>`).join('')}</ul><p class="small muted">Published reference: ${price(o)} · ${typeLabel(o)}</p>`)}
-function directory(){modal(`<h2>Research directory · ${DIRECTORY.length} entries</h2><p>Entries may represent one facility, several branches or a booking program. ${offers.length} reviewed offers are mapped for MRI/CT search. Other entries remain source leads. All original price wording is preserved.</p>${control('dirSearch','Filter directory by name, area or state','<input id="dirSearch" placeholder="e.g. Tellica, OH, Vermont">')}<div id="dirRows"></div>`);function show(){const q=$('dirSearch').value.toLowerCase();$('dirRows').innerHTML=DIRECTORY.filter(d=>[d.name,d.area,d.states].join(' ').toLowerCase().includes(q)).map(d=>`<details class="lead"><summary>${esc(d.name)} · ${esc(d.states)}</summary><span class="badge neutral">${esc(d.category)}</span><p>${esc(d.area)} · ${esc(d.entity)}</p><p><strong>MRI:</strong> ${esc(d.mri)}<br><strong>CT:</strong> ${esc(d.ct)}</p><p><strong>Other imaging:</strong> ${esc(d.other)}</p><p><strong>Location / coverage:</strong> ${esc(d.coverage)}</p><p>${esc(d.notes)}</p><a href="${esc(d.source)}" target="_blank" rel="noopener noreferrer">Provider source</a><p class="small">Checked ${d.checked.slice(0,10)}</p></details>`).join('')||'<p role="status">No directory entries match. Try another name, city or state.</p>'}show();$('dirSearch').oninput=show}
+function directory(){
+  modal(`<h2>Research directory · ${DIRECTORY.length} entries</h2><p>Entries may represent facilities, branches or programs. ${offers.length} reviewed price offers are mapped for search.</p>${control('dirSearch','Filter directory by name, area or state','<input id="dirSearch" placeholder="e.g. Tellica, OH, Vermont">')}<p id="dirCount" role="status"></p><div id="dirRows"></div><div class="actions"><button id="dirPrev" type="button">Previous</button><button id="dirNext" type="button">Next</button></div>`);
+  const indexed=DIRECTORY.map(d=>({d,text:[d.name,d.area,d.states].join(' ').toLowerCase()}));
+  let page=0;
+  function show(){
+    const q=$('dirSearch').value.trim().toLowerCase();
+    const matches=indexed.filter(item=>item.text.includes(q));
+    const pages=Math.max(1,Math.ceil(matches.length/50));
+    page=Math.min(page,pages-1);
+    const start=page*50;
+    $('dirCount').textContent=matches.length ? `Showing ${start+1}–${Math.min(start+50,matches.length)} of ${matches.length} matches` : 'No directory entries match.';
+    $('dirRows').innerHTML=matches.slice(start,start+50).map(({d})=>`<details class="lead"><summary>${esc(d.name)} · ${esc(d.states)}</summary><span class="badge neutral">${esc(d.category)}</span><p>${esc(d.area)} · ${esc(d.entity)}</p><p><strong>MRI:</strong> ${esc(d.mri)}<br><strong>CT:</strong> ${esc(d.ct)}</p><p><strong>Other imaging:</strong> ${esc(d.other)}</p><p><strong>Location / coverage:</strong> ${esc(d.coverage)}</p><p>${esc(d.notes)}</p><a href="${esc(d.source)}" target="_blank" rel="noopener noreferrer">Provider source</a><p class="small">Checked ${esc(String(d.checked||'').slice(0,10))}</p></details>`).join('');
+    $('dirPrev').disabled=page===0;
+    $('dirNext').disabled=page>=pages-1;
+  }
+  $('dirPrev').onclick=()=>{page--;show()};
+  $('dirNext').onclick=()=>{page++;show()};
+  $('dirSearch').oninput=()=>{page=0;show()};
+  show();
+}
 
 
 let cityLabels=['Cincinnati, OH','Louisville, KY','Lexington, KY','Philadelphia, PA','Boise, ID','Lawrenceville, GA','Auburn, WA','Spanish Fork, UT','South Burlington, VT','Wisconsin','National'];

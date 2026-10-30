@@ -1,8 +1,9 @@
 # MySelfPay review POC
 
 Self-pay MRI/CT directory with guest-only search and a limited deterministic chat.
-No external AI, voice service, OCR, booking, payment or insurance calculation is
-connected. Use synthetic member information only. Research listings are not a
+No external AI, voice service, OCR, payment or insurance calculation is connected.
+Appointment requests now include patient email OTP verification; clinic notifications
+remain suppressed in testing mode. See docs/booking-flow.md. Use synthetic member information only. Research listings are not a
 contracted provider network, guaranteed quote or medical recommendation.
 
 The bundle has 74 researched directory entries and 57 mapped MRI/CT offers.
@@ -14,7 +15,8 @@ source dates, restrictions and quote-required distinctions are preserved.
 Guests can search, filter, browse and compare freely. Chat allows 3 conversations,
 5 messages each, and 500 characters/message. Chat text is not saved. Saved history
 and full agent access are planned for future accounts; premium does not exist.
-Only listed location preferences and server-side usage metadata may be stored.
+Explicit appointment submissions also store encrypted contact and request details.
+Other guest browsing stores only listed location preferences and usage metadata.
 Sessions last up to 8 hours. No password/login/register implementation remains.
 
 See docs/guest-tier-handoff.md for all limits, tests, rollout and pending external

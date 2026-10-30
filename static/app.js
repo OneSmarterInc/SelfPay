@@ -196,9 +196,11 @@ async function signOut(){
 let guestBusy=false;
 async function signInGuest(kind='search'){
   if(guestBusy)return;guestBusy=true;$('profile').disabled=true;
+  $('app').innerHTML='<section class="panel" role="status" aria-live="polite"><h1>Starting your guest session…</h1><p>Loading imaging options. Please wait.</p></section>';
   try{const r=await api('/guest',{});account=r.member;csrf=r.csrf;
-    try{await start()}catch(e){loadFailure(e);return}
+    try{await start()}catch(e){loadFailure(e);$('retrySession').onclick=safe(async()=>{await start();await enterJourney(kind)});return}
     await enterJourney(kind);
+  }catch(e){welcome();throw e
   }finally{guestBusy=false;$('profile').disabled=false}
 }
 let pendingEntry=null;
@@ -230,7 +232,7 @@ async function enterJourney(kind){
   if(kind==='scan')scan();else if(kind==='explore')explore();
 }
 function loginScreen(){welcome()}
-async function start(){updateNavigation();epoch++;results=[];state=defaults();state.member=`${account.tenant} / ${account.name}`;await loadCatalog();state.usage=(await api('/guest-usage')).usage||{};state.conversationId=Object.keys(state.usage).at(-1)||null;state.location='';welcome()}
+async function start(){updateNavigation();epoch++;results=[];state=defaults();state.member=`${account.tenant} / ${account.name}`;const loaded=await Promise.allSettled([loadCatalog(),api('/guest-usage')]);const failed=loaded.find(result=>result.status==='rejected');if(failed)throw failed.reason;state.usage=loaded[1].value.usage||{};state.conversationId=Object.keys(state.usage).at(-1)||null;state.location='';welcome()}
 $('brandHome').onclick=e=>{if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;e.preventDefault();if(globalThis.location?.hash)globalThis.history?.replaceState?.(null,'',globalThis.location.pathname);pendingEntry=null;welcome();globalThis.scrollTo?.({top:0,left:0,behavior:'instant'})};
 $('history').onclick=safe(async()=>{if(!account)return loginScreen();await history()});
 $('directory').onclick=safe(async()=>{if(!account)return loginScreen();await loadCatalog();directory()});

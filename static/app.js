@@ -204,7 +204,7 @@ function report(o){
   $('reportForm').onsubmit=e=>{e.preventDefault();safe(async()=>{await api('/corrections',{offer_id:o.id,category:$('reportType').value,description:$('reportText').value});$('modal').close();toast('Correction saved as pending review. Listing unchanged.')})()};
 }
 async function signOut(){
-  navigationSerial++;
+  navigationSerial++;navigationRestoring=false;
   await saveQueue.catch(()=>{});await api('/logout',{});epoch++;account=null;csrf='';
   state=defaults();results=[];offers=[];DIRECTORY=[];catalogReady=false;pendingEntry=null;
   $('modal').close();welcome();

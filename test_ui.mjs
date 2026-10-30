@@ -186,3 +186,33 @@ assert.match(node('modal').innerHTML,/Open email app/);assert.match(node('modal'
 console.log('Appointment mailto checks passed; no email sent.');
 
 assert.equal(vm.runInContext("appointmentEmail({email:'appointments@example.test',email_scope:'Shared clinical/scheduling contact; not branch-specific. For scheduling questions.'})",ctx),'appointments@example.test');
+
+// Startup must request usage while the catalog is still pending.
+const originalFetch=ctx.fetch;
+let releaseCatalog;
+const requested=[];
+ctx.fetch=async(url,options)=>{
+  requested.push(url);
+  if(url==='/api/catalog')await new Promise(resolve=>{releaseCatalog=resolve});
+  return originalFetch(url,options);
+};
+const signingIn=vm.runInContext('signInGuest("agent")',ctx);
+assert.match(node('app').innerHTML,/Starting your guest session/);
+assert.equal(node('profile').disabled,true);
+for(let i=0;i<20;i++)await Promise.resolve();
+assert.ok(requested.includes('/api/catalog'));
+assert.ok(requested.includes('/api/guest-usage'),'Usage must not wait for catalog completion');
+await vm.runInContext('signInGuest()',ctx);
+assert.equal(requested.filter(url=>url==='/api/guest').length,1);
+releaseCatalog();
+await signingIn;
+assert.equal(node('profile').disabled,false);
+assert.equal(vm.runInContext('state.mode',ctx),'agent');
+ctx.fetch=async(url,options)=>url==='/api/guest'
+  ? {ok:false,status:503,json:async()=>({error:'Temporarily unavailable'})}
+  : originalFetch(url,options);
+await assert.rejects(vm.runInContext('signInGuest()',ctx),/Temporarily unavailable/);
+assert.equal(node('profile').disabled,false);
+assert.match(node('app').innerHTML,/Find self-pay MRI and CT near you/);
+ctx.fetch=originalFetch;
+console.log('Concurrent guest startup, progress, duplicate-click and failure checks passed.');

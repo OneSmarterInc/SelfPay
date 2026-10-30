@@ -70,6 +70,9 @@ def initialize(path=DB):
             category TEXT NOT NULL, description TEXT NOT NULL, created REAL NOT NULL, status TEXT NOT NULL);
         ''')
         db.execute('PRAGMA secure_delete=ON')
+    if not str(path).startswith(('postgres://','postgresql://')):
+        import accounts
+        accounts.initialize(path)
     try: os.chmod(path,0o600)
     except OSError: pass
 

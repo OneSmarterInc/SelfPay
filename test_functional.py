@@ -51,7 +51,7 @@ class FunctionalTests(unittest.TestCase):
         return {'cookie':'selfpay_session='+data['token'],'csrf':data['csrf'],'member':data['member']}
     def payload(self):return {'messages':[{'role':'user','text':'Synthetic knee MRI search'}],'search':{'mod':'MRI','body':'Knee','contrast':'without','location':'Cincinnati, OH','budget':500}}
     def test_01_auth_required(self):self.assertEqual(self.req('/api/catalog')[0],401)
-    def test_02_password_failure(self):self.assertEqual(self.req('/api/login',{'email':'alex.a@example.test','password':'wrong'})[0],410)
+    def test_02_password_failure(self):self.assertEqual(self.req('/api/login',{'email':'alex.a@example.com','password':'wrong'},headers={'Origin':'http://127.0.0.1:8765'})[0],401)
     def test_03_session_cookie_security(self):
         self.http.login_attempts=[]
         status,r,h=self.req('/api/guest',{})
@@ -239,9 +239,10 @@ class FunctionalTests(unittest.TestCase):
         self.assertEqual(self.req('/api/catalog',auth=a)[0],401)
         b=self.guest();self.assertNotEqual(a['member']['id'],b['member']['id'])
 
-    def test_30_credentials_disabled_and_guest_expiry(self):
-        for route in ('/api/login','/api/register','/api/password'):
-            self.assertEqual(self.req(route,{})[0],410)
+    def test_30_account_origin_required_and_guest_expiry(self):
+        for route in ('/api/login','/api/register'):
+            self.assertEqual(self.req(route,{})[0],403)
+        self.assertEqual(self.req('/api/password',{})[0],410)
         a=self.guest()
         with core.connect(self.db) as db:db.execute('UPDATE sessions SET expires=0 WHERE member_id=?',(a['member']['id'],))
         self.assertEqual(self.req('/api/me',auth=a)[0],401)

@@ -122,13 +122,13 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   storedUsage={};
   await vm.runInContext('api("/logout",{})',ctx);
   const rejected=await vm.runInContext('api("/catalog").then(()=>false).catch(()=>true)',ctx);assert.equal(rejected,true);
-  assert.equal(node('profile').textContent,'Start searching');
+  assert.equal(node('profile').textContent,'Sign in as guest');
   assert.equal(node('history').hidden,true);
   assert.doesNotMatch(node('app').innerHTML,/loginForm|Create an account/);
   await vm.runInContext('signInGuest("agent")',ctx);
   assert.equal(vm.runInContext('state.mode',ctx),'agent');
   await vm.runInContext('signOut()',ctx);
-  assert.equal(node('profile').textContent,'Start searching');
+  assert.equal(node('profile').textContent,'Sign in as guest');
   assert.equal(vm.runInContext('account',ctx),null);
   console.log('Client workflow checks, including guest privacy, quotas and catalog failure recovery, passed with stub transport. No browser visual QA.');
 }
@@ -241,3 +241,42 @@ assert.equal(vm.runInContext('DIRECTORY.length',ctx),0);
 assert.equal(vm.runInContext('offers.length',ctx),0);
 ctx.fetch=originalFetch;
 console.log('Late catalog responses cannot repopulate a signed-out session.');
+
+// Public account forms keep guest entry and handle validation/login state.
+ctx.location={hash:'#signup',pathname:'/'};
+ctx.history={replaceState(){ctx.location.hash=''}};
+vm.runInContext('accountPage(true)',ctx);
+assert.match(node('app').innerHTML,/Full name/);
+assert.match(node('app').innerHTML,/Phone number \(optional\)/);
+assert.match(node('app').innerHTML,/Sign in as guest/);
+assert.match(node('app').innerHTML,/autocomplete="new-password"/);
+node('accountError').isConnected=true;
+node('accountPassword').value='Synthetic-passphrase!';
+node('accountConfirm').value='does not match';
+await node('accountForm').onsubmit({preventDefault(){}});
+assert.equal(node('accountError').textContent,'Passwords do not match.');
+vm.runInContext('accountPage(false)',ctx);
+assert.match(node('app').innerHTML,/href="#signup"/);
+ctx.fetch=async(url,options)=>url==='/api/login'
+ ? {ok:false,status:401,json:async()=>({error:'Email or password is incorrect.'})}
+ : originalFetch(url,options);
+await node('accountForm').onsubmit({preventDefault(){}});
+assert.equal(node('accountError').textContent,'Email or password is incorrect.');
+assert.equal(node('accountSubmit').disabled,false);
+node('accountForm').reset=()=>{};
+ctx.fetch=async(url,options)=>{
+ if(url==='/api/login'){signedIn=true;return {ok:true,status:200,json:async()=>({member:{id:'account-1',tenant:'selfpay',name:'Synthetic'},csrf:'new-csrf'})};}
+ return originalFetch(url,options);
+};
+await node('accountForm').onsubmit({preventDefault(){}});
+assert.equal(vm.runInContext('account.tenant',ctx),'selfpay');
+assert.equal(node('accountLogin').hidden,true);
+assert.equal(node('profile').textContent,'Sign out');
+assert.equal(vm.runInContext('state.private',ctx),true);
+assert.equal(vm.runInContext('chatDisabled()',ctx),false);
+assert.doesNotMatch(vm.runInContext('guestChatControls()',ctx),/Guest preview:/);
+ctx.fetch=originalFetch;
+await vm.runInContext('signOut()',ctx);
+assert.equal(node('accountLogin').hidden,false);
+assert.equal(node('profile').textContent,'Sign in as guest');
+console.log('Account form validation, login/logout, guest entry and private-state checks passed.');

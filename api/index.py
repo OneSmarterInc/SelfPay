@@ -11,6 +11,7 @@ import server
 from postgres_store import uses_pooler
 
 class handler(server.Handler):
+    booking_preview = False
     # __Host- cookies must be Secure, Path=/ and host-only, so a sibling subdomain cannot set or shadow them.
     cookie_name='__Host-selfpay_session'
     def extra_headers(self):

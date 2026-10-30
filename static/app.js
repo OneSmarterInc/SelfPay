@@ -15,7 +15,7 @@ function phoneOf(e){const m=String(e?.coverage||'').match(/\(?(\d{3})\)?[-. ]?(\
 function addressOf(e){const c=String(e?.coverage||'').replace(/\(?\d{3}\)?[-. ]?\d{3}[-. ]\d{4}/g,'').replace(/[.\s]+$/,'').trim();return /^\d+\s+\S/.test(c)?c:''}
 function websiteOf(e){return /^https:\/\//.test(e?.source||'')?e.source:''}
 function telLink(ph,cls,label){return `<a${cls?` class="${cls}"`:''} href="tel:+1${ph.replace(/-/g,'')}">${esc(label||ph)}</a>`}
-function contactActions(o){const e=o.entry,ph=phoneOf(e),addr=addressOf(e),web=websiteOf(e);if(!ph&&!addr&&!web&&!appointmentEmail(e))return '';return `<div class="card-actions" aria-label="Contact ${esc(e.name)}">${ph?telLink(ph,'call','Call '+ph):''}${web?`<a href="${esc(web)}" target="_blank" rel="noopener noreferrer">Website</a>`:''}${appointmentEmail(e)?`<button type="button" data-appointment="${esc(e.name)}">Book appointment</button>`:''}${addr?`<a href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(String(e.name).split(' — ')[0]+', '+addr))}" target="_blank" rel="noopener noreferrer">Directions</a>`:''}</div>`}
+function contactActions(o){const e=o.entry,ph=phoneOf(e),addr=addressOf(e),web=websiteOf(e);if(!ph&&!addr&&!web&&!e.booking_id)return '';return `<div class="card-actions" aria-label="Contact ${esc(e.name)}">${ph?telLink(ph,'call','Call '+ph):''}${web?`<a href="${esc(web)}" target="_blank" rel="noopener noreferrer">Website</a>`:''}${e.booking_id?`<button type="button" data-appointment="${esc(e.booking_id)}" data-booking-offer="${esc(o.id||'')}">Book appointment</button>`:''}${addr?`<a href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(String(e.name).split(' — ')[0]+', '+addr))}" target="_blank" rel="noopener noreferrer">Directions</a>`:''}</div>`}
 function cardFacts(o){const facts=[`<div class="fact"><strong>Price includes</strong><br>${esc(o.included)}</div>`];if(o.order&&!/^(Review the facility restrictions|Not established in this directory)/i.test(o.order))facts.push(`<div class="fact"><strong>Order requirements</strong><br>${esc(o.order)}</div>`);if(state.budget)facts.push(`<div class="fact"><strong>Budget check</strong><br>${budgetGroup(o)}</div>`);return `<div class="facts">${facts.join('')}</div>`}
 function card(o){return `<article class="card">${o.reviewed_alternative?`<div class="notice"><strong>Reviewed alternative · filters differ</strong><p>${esc(o.match_status)}</p><ul>${(o.filter_differences||[]).map(d=>`<li>${esc(d)}</li>`).join('')}</ul></div>`:''}<div class="row between"><span class="badge ${o.type==='fixed'?'':'warn'}">${typeLabel(o)}</span><label class="small"><input style="width:auto" type="checkbox" aria-label="Compare ${esc(o.entry.name)}" data-select="${o.id}" ${state.selected.includes(o.id)?'checked':''}> Compare</label></div><div class="row between" style="margin-top:16px"><div><h3>${esc(o.entry.name)}</h3><div class="muted small">${esc(o.region)} · ${esc(o.entry.entity)}</div><div class="small">${esc(distanceLabel(o))}</div></div><div class="price">${price(o)}</div></div><p class="scope">${esc(o.mod)} · ${esc(o.contrast==='unknown'?'Protocol unconfirmed':(o.contrast==='both'?'Without and with':o.contrast==='without'?'Without':'With')+' contrast')} · ${esc(o.scope)}</p>${cardFacts(o)}${contactActions(o)}<div class="row between"><span class="small muted">Source checked ${o.entry.checked.slice(0,10)} · Reconfirm before arranging care</span><button data-detail="${o.id}">View details</button></div></article>`}
 function locationPending(){return !!(state.locationSuggestions?.length||state.locationUnresolved)}
@@ -264,11 +264,11 @@ const PARTNER_EMAIL='partners@onesmarter.com';
 const PAGES={
  'for-imaging-centers':{title:'For imaging centers',body:()=>`<p class="welcome-lead">Self-pay patients compare prices before they call. MySelfPay shows them yours.</p><h2>What patients see today</h2><p>Each of your centers with its distance, phone, website and directions, plus your published self-pay price, or “Price on request.”</p><h2>Show your price</h2><p>Send us your self-pay prices for your most common exams, what each includes, and how long it holds. We publish them, and patients see your number instead of a phone call.</p><h2>Coming next</h2><p>Open times and booking requests that your staff or scheduling system confirms. Patients pay on your own payment page.</p><p><strong>Free during the pilot.</strong></p><div class="actions"><a class="button primary" href="mailto:${PARTNER_EMAIL}?subject=${encodeURIComponent('MySelfPay for our imaging center')}">Talk to us</a><a class="button" href="mailto:${PARTNER_EMAIL}?subject=${encodeURIComponent('Correct our MySelfPay listing')}">Correct your listing</a></div>`},
  'contact':{title:'Contact',body:()=>`<p>MySelfPay is built by One Smarter, Inc. in Dayton, Ohio.</p><p>Questions, corrections or partnership requests: <a href="mailto:${PARTNER_EMAIL}">${PARTNER_EMAIL}</a>.</p><p>Imaging centers: see <a href="#for-imaging-centers">For imaging centers</a>.</p>`},
- 'privacy':{title:'Privacy',body:()=>`<p>MySelfPay works without an account. When you search, we use the exam and city you type to find facilities near you. That search location is used for your search only and is not saved.</p><p>Chat messages stay on your page and clear when you refresh it.</p><p>To run guest limits, we store a session cookie for up to 8 hours and counts of how many chats you’ve started.</p><p>We never collect your name, health records or payment details.</p><p>When you call or visit a facility, its own privacy practices apply.</p><p>Questions: <a href="mailto:${PARTNER_EMAIL}">${PARTNER_EMAIL}</a>.</p>`},
+ 'privacy':{title:'Privacy',body:()=>`<p>MySelfPay works without an account. When you search, we use the exam and city you type to find facilities near you. That search location is used for your search only and is not saved.</p><p>Chat messages stay on your page and clear when you refresh it.</p><p>To run guest limits, we store a session cookie for up to 8 hours and counts of how many chats you’ve started.</p><p>If you save an appointment preview, we store your first name, phone and request details. Email delivery is disabled. Do not enter medical records or payment details.</p><p>When you call or visit a facility, its own privacy practices apply.</p><p>Questions: <a href="mailto:${PARTNER_EMAIL}">${PARTNER_EMAIL}</a>.</p>`},
  'terms':{title:'Terms',body:()=>`<p>MySelfPay lists self-pay prices that facilities publish. Prices, eligibility and availability are set by each facility and can change. Confirm them with the facility before your exam.</p><p>MySelfPay doesn’t provide medical advice. Your clinician decides which exam you need.</p><p>Facility names and prices belong to their owners and are shown for comparison.</p><p>Use of the site is at your own discretion.</p>`},
 };
 function infoPage(key){const page=PAGES[key];if(!page)return false;updateNavigation();pageTop('page:'+key);document.title=`${page.title} · MySelfPay`;$('app').innerHTML=`<article class="panel info-page"><h1>${esc(page.title)}</h1>${page.body()}<p class="actions"><a href="/">Back to MySelfPay</a></p></article>`;return true}
-function routeHash(){if(globalThis.location?.hash==='#booking-test'){openBookingTest().catch(e=>toast(e.message));return true;}const legacy=String(globalThis.location?.hash||'').slice(1);const destinations={privacy:'/privacy-terms',terms:'/privacy-terms',contact:'/contact','for-imaging-centers':'/for-imaging-centers'};if(destinations[legacy]){globalThis.location.replace(destinations[legacy]);return true;}const key=decodeURIComponent(String(globalThis.location?.hash||'').slice(1));if(PAGES[key])return infoPage(key);document.title='MySelfPay · Find self-pay MRI and CT';return false}
+function routeHash(){if(bookingRoute())return true;if(globalThis.location?.hash==='#booking-test'){openBookingTest().catch(e=>toast(e.message));return true;}const legacy=String(globalThis.location?.hash||'').slice(1);const destinations={privacy:'/privacy-terms',terms:'/privacy-terms',contact:'/contact','for-imaging-centers':'/for-imaging-centers'};if(destinations[legacy]){globalThis.location.replace(destinations[legacy]);return true;}const key=decodeURIComponent(String(globalThis.location?.hash||'').slice(1));if(PAGES[key])return infoPage(key);document.title='MySelfPay · Find self-pay MRI and CT';return false}
 globalThis.addEventListener?.('hashchange',()=>{if(!routeHash()){if(account)render();else welcome()}});
 const bootReady=(async()=>{try{const r=await api('/me');account=r.member;csrf=r.csrf;await start()}catch(e){if(account)loadFailure(e);else welcome()}})();
 bootReady.then(()=>routeHash());
@@ -287,54 +287,128 @@ function guestChatControls(){
  return `<p role="status">Guest preview: ${left} of 3 conversations left to start · ${messages} messages left in this conversation.</p><div class="actions">${prompts.map(t=>`<button data-starter="${esc(t)}" ${chatDisabled()?'disabled':''}>${esc(t)}</button>`).join('')}</div><button id="newGuestChat" ${left===0||state.chatBlocked?'disabled':''}>Start new conversation</button>${chatDisabled()?'<p role="alert">Guest preview limit reached. Full access is coming with MySelfPay accounts.</p><p>'+esc(guestLimitExplanation())+'</p>':''}<p class="small">Up to 500 characters per message. Search, filters, directory and compare remain available.</p>`;
 }
 
-
-
-
-
-
-
-// Compose locally: never transmit form values to the application server.
-function appointmentEmail(center){
- const scope=String(center.email_scope||'');
- if(center.appointment_email_approved!==true&&(!/scheduling|appointments?/i.test(scope)||/not (?:intended for |for )?(?:patient |branch |local )?schedul|not intended for prescriptions|billing|financial|business|referral|prescriptions|feedback|advocacy|privacy|media/i.test(scope)))return '';
- const address=String(center.email||'').trim();
- return /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(address)&&address.length<=254?address:'';
+// Booking details live only in this page until an explicit, consented submission.
+const BOOKING_ZONES={'America/New_York':'Eastern','America/Chicago':'Central','America/Denver':'Mountain','America/Phoenix':'Arizona','America/Los_Angeles':'Pacific','America/Anchorage':'Alaska','Pacific/Honolulu':'Hawaii'};
+const BOOKING_STATUS={requested:'Request sent',voicemail:'Clinic left a voicemail',scheduled:'Scheduled by clinic',unable:'Clinic cannot accommodate',expired:'Request expired'};
+let bookingTimer=null;
+function bookingStopPolling(){clearInterval(bookingTimer);bookingTimer=null;}
+async function bookingApi(action,data){
+ const response=await fetch('/api/booking/'+action,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf||''},body:JSON.stringify(data)});
+ const value=await response.json();if(!response.ok)throw new Error(value.error||'Unable to complete this request. Please retry.');return value;
 }
-function appointmentDraft(center,values){
- const recipient=appointmentEmail(center);
- if(!recipient)throw new Error('This center has no appointment email. Please contact it directly.');
- const name=String(values.name||'').trim(),phone=String(values.phone||'').trim();
- if(!name||name.length>100||/[\r\n]/.test(name)||!/[0-9]{3}/.test(phone)||phone.length>30)throw new Error('Enter your name and a contact phone number.');
- const date=String(values.date||''),time=String(values.time||''),zone=String(values.zone||'');
- const zones=['Eastern','Central','Mountain','Arizona','Pacific','Alaska','Hawaii'];
- if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time)||!zones.includes(zone))throw new Error('Choose a date, time and the center’s time zone.');
- const today=new Date();const localDate=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
- if(date<localDate||!Number.isFinite(Date.parse(date+'T'+time)))throw new Error('Choose a valid date today or later.');
- if(!['MRI','CT','Other imaging','Please contact me'].includes(values.service))throw new Error('Choose a service.');
- const subject=`Appointment request — ${center.name}`;
- const body=`Hello ${center.name},\r\n\r\nI would like to request an imaging appointment.\r\nName: ${name}\r\nPhone: ${phone}\r\nPreferred date: ${date}\r\nPreferred time: ${time} (${zone} time)\r\nService: ${values.service}\r\nLocation: ${center.coverage||center.area||'Please confirm'}\r\n\r\nPlease reply to this email to confirm availability, the location, referral requirements, preparation and total self-pay price. I understand this is a request, not a confirmed booking.\r\n\r\nThank you.\r\n${name}`;
- return {subject,body,uri:`mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`};
+function slotLabel(s){return new Date(s.date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+' · '+(s.period==='morning'?'Morning (8 am–12 pm)':'Afternoon (12–5 pm)');}
+function bookingSummary(b){return `<dl class="booking-summary"><dt>Clinic</dt><dd>${esc(b.clinic_name)}</dd><dt>Location</dt><dd>${esc(b.location||'Confirm with clinic')}</dd><dt>Exam</dt><dd>${esc([b.service,b.exam].filter(Boolean).join(' · '))} · ${esc(contrastLabel(b.contrast))}</dd><dt>Preferred times</dt><dd>${b.slots.map(s=>esc(slotLabel(s))).join('<br>')}<br>${esc(BOOKING_ZONES[b.timezone])} time</dd><dt>Price</dt><dd>${esc(b.price_text||'Clinic will confirm the exact total.')}</dd></dl>`;}
+async function appointmentForm(center,offerId=''){
+ bookingStopPolling();modal('<h2>Book appointment</h2><p role="status">Loading request details…</p>');
+ try{
+  const options=await bookingApi('options',{clinic_id:center.booking_id,offer_id:offerId});
+  const draft={clinic_id:center.booking_id,offer_id:offerId,price_text:options.price_text,clinic_name:options.name,location:options.location,slots:[],timezone:'',service:state.mod||'Please contact me',exam:state.body||'',contrast:state.contrast||'unknown',first_name:'',phone:'',email:'',consent:false,idempotency_key:crypto.randomUUID()};
+  bookingSlots(draft,options);
+ }catch(error){$('modalBody').innerHTML=`<h2>Request unavailable</h2><p role="alert">${esc(error.message)}</p><p>Please close this dialog and try again.</p>`;}
 }
-function appointmentForm(center){
- modal(`<h2>Book appointment</h2><p><strong>${esc(center.name)}</strong>${center.test_only?' — TEST ONLY, not a real facility':''}</p><p>Fill in your preferred time. Your email app will open a draft addressed to ${esc(appointmentEmail(center))}. Review it and press Send there. No MySelfPay account is needed.</p><form id="appointmentForm"><label>Your name<input id="appointmentName" autocomplete="name" maxlength="100" required></label><label>Phone<input id="appointmentPhone" type="tel" autocomplete="tel" maxlength="30" required></label><label>Preferred date<input id="appointmentDate" type="date" required></label><label>Preferred time<input id="appointmentTime" type="time" required></label><label>Center’s time zone<select id="appointmentZone" required><option value="">Choose time zone</option>${['Eastern','Central','Mountain','Arizona','Pacific','Alaska','Hawaii'].map(z=>`<option>${z}</option>`).join('')}</select></label><label>Service<select id="appointmentService"><option>Please contact me</option><option>MRI</option><option>CT</option><option>Other imaging</option></select></label><p>Do not include diagnoses, insurance details or medical records. The center must confirm your appointment.</p><button type="submit">Open email app</button><p id="appointmentStatus" role="status"></p><div id="appointmentFallback"></div></form>`);
- $('appointmentForm').onsubmit=event=>{
-  event.preventDefault();
-  try{
-   const draft=appointmentDraft(center,{name:$('appointmentName').value,phone:$('appointmentPhone').value,date:$('appointmentDate').value,time:$('appointmentTime').value,zone:$('appointmentZone').value,service:$('appointmentService').value});
-   $('appointmentStatus').textContent='Review the draft in your email app and press Send. MySelfPay cannot confirm whether it was sent. If no app opens, copy the details below into your email.';
-   $('appointmentFallback').innerHTML=`<p>To: ${esc(appointmentEmail(center))}</p><p>Subject: ${esc(draft.subject)}</p><label>Email message<textarea rows="10" readonly>${esc(draft.body)}</textarea></label><a href="${esc(draft.uri)}">Open email app again</a>`;
-   globalThis.location.href=draft.uri;
-  }catch(error){$('appointmentStatus').textContent=error.message;}
+function bookingSlots(draft,options){
+ modal(`<h2>Request a time</h2><p class="eyebrow">STEP 1 OF 2</p><h3>${esc(draft.clinic_name)}</h3><p>Choose up to 3 preferred times. These are preferences, not available appointments.</p><p class="booking-notice">Testing mode: the clinic will not be emailed. Verification codes are sent to your personal email. Use sample patient details and an inbox you control.</p><form id="bookingSlots"><label>Clinic’s time zone<select id="bookingZone" required><option value="">Choose the clinic’s time zone</option>${Object.entries(BOOKING_ZONES).map(([v,t])=>`<option value="${v}" ${draft.timezone===v?'selected':''}>${t}</option>`).join('')}</select></label><label>Imaging service<select id="bookingService">${['Please contact me','MRI','CT','Other imaging'].map(v=>`<option ${v===draft.service?'selected':''}>${v}</option>`).join('')}</select></label><label>Body part / exam (optional)<input id="bookingExam" maxlength="100" value="${esc(draft.exam)}" placeholder="e.g. Knee"></label><label>Contrast<select id="bookingContrast">${[['unknown','Not sure'],['without','Without contrast'],['with','With contrast'],['both','Without and with contrast']].map(([v,t])=>`<option value="${v}" ${draft.contrast===v?'selected':''}>${t}</option>`).join('')}</select></label><fieldset class="booking-time-picker"><legend>Preferred times</legend><label>Choose a date<input type="date" id="bookingDate"></label><div class="booking-slot-grid"><button type="button" data-add-slot="morning">Add morning · 8 am–12 pm</button><button type="button" data-add-slot="afternoon">Add afternoon · 12–5 pm</button></div><div id="bookingSelected"></div></fieldset><p id="bookingError" role="alert"></p><button type="submit" class="primary">Continue</button></form>`);
+ const draw=()=>{
+  $('bookingSelected').innerHTML=`<p role="status">${draft.slots.length} of 3 times selected</p>`+draft.slots.map((s,i)=>`<div class="booking-slot"><span>${esc(slotLabel(s))}</span><button type="button" data-remove-slot="${i}" aria-label="Remove ${esc(slotLabel(s))}">Remove</button></div>`).join('');
+  document.querySelectorAll('[data-remove-slot]').forEach(b=>b.onclick=()=>{draft.slots.splice(Number(b.dataset.removeSlot),1);draw();});
  };
+ const dateBounds=()=>{
+  const zone=$('bookingZone').value;
+  if(zone){const d=options.today[zone];$('bookingDate').min=d;const max=new Date(d+'T12:00:00Z');max.setUTCDate(max.getUTCDate()+90);$('bookingDate').max=max.toISOString().slice(0,10);}
+ };
+ $('bookingZone').onchange=dateBounds;dateBounds();draw();
+ document.querySelectorAll('[data-add-slot]').forEach(button=>button.onclick=()=>{
+  $('bookingError').textContent='';const date=$('bookingDate').value;
+  if(!$('bookingZone').value||!date||!$('bookingDate').checkValidity()){$('bookingError').textContent='Choose the clinic’s time zone and a date within the next 90 days.';return;}
+  const slot={date,period:button.dataset.addSlot};
+  if(draft.slots.some(s=>s.date===date&&s.period===slot.period)){$('bookingError').textContent='That time is already selected.';return;}
+  if(draft.slots.length===3){$('bookingError').textContent='Choose at most 3 times. Remove a time to select another.';return;}
+  draft.slots.push(slot);draw();
+ });
+ $('bookingSlots').onsubmit=event=>{
+  event.preventDefault();if(!draft.slots.length){$('bookingError').textContent='Select at least one preferred time.';return;}
+  if(draft.service!==$('bookingService').value||draft.contrast!==$('bookingContrast').value||draft.exam!==$('bookingExam').value){draft.offer_id='';draft.price_text='Clinic will confirm the exact total for the selected exam.';}Object.assign(draft,{timezone:$('bookingZone').value,service:$('bookingService').value,exam:$('bookingExam').value,contrast:$('bookingContrast').value});bookingContact(draft,options);
+ };
+}
+function bookingContact(draft,options){
+ modal(`<h2>Confirm your request</h2><p class="eyebrow">STEP 2 OF 2</p>${bookingSummary(draft)}<p class="booking-notice">Preview only. No clinic will receive this request.</p><form id="bookingContact"><h3>How should the clinic reach you?</h3><label>First name<input id="bookingName" autocomplete="given-name" maxlength="80" value="${esc(draft.first_name)}" required></label><label>Mobile number<input id="bookingPhone" type="tel" autocomplete="tel" maxlength="30" value="${esc(draft.phone)}" required></label><fieldset class="booking-time-picker"><legend>Verify your personal email</legend><label>Email address<input id="bookingEmail" type="email" autocomplete="email" maxlength="254" value="${esc(draft.email)}" required></label><button type="button" id="patientCodeSend">Send verification code</button><p id="patientEmailStatus" role="status">${draft.verification_token?'Email verified. You can submit your request.':''}</p><label>Six-digit email code<input id="patientEmailCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}"></label><button type="button" id="patientCodeVerify">Verify email</button></fieldset><label class="booking-consent"><input id="bookingConsent" type="checkbox" ${draft.consent?'checked':''} required><span>I agree that ${esc(draft.clinic_name)} may call or text me about this request when delivery is enabled. I understand this preview will not contact the clinic.</span></label><p class="small">We store your email verification and request securely. Do not enter medical records, diagnoses, insurance details or real patient information. Requests are deleted 30 days after closing. <a href="/privacy-terms" target="_blank" rel="noopener">Privacy details</a></p><div class="actions"><button type="button" id="bookingBack">Back</button><button type="submit" id="bookingSubmit" class="primary" ${draft.verification_token?'':'disabled'}>Send request</button></div><p id="bookingError" role="alert"></p></form>`);
+ const save=()=>Object.assign(draft,{first_name:$('bookingName').value,phone:$('bookingPhone').value,email:$('bookingEmail').value,consent:$('bookingConsent').checked});
+ $('bookingEmail').oninput=()=>{draft.email=$('bookingEmail').value;delete draft.verification_token;delete draft.verification_id;$('bookingSubmit').disabled=true;$('patientEmailStatus').textContent='Verify this email before submitting.';};
+ $('patientCodeSend').onclick=async()=>{
+  if(!$('bookingEmail').reportValidity())return;
+  const email=$('bookingEmail').value;$('patientCodeSend').disabled=true;$('bookingEmail').disabled=true;$('bookingBack').disabled=true;$('patientEmailStatus').textContent='Sending verification code…';
+  delete draft.verification_token;$('bookingSubmit').disabled=true;
+  try{const result=await bookingApi('email-code',{email});draft.email=email;draft.verification_id=result.verification_id;$('patientEmailStatus').textContent='Code sent. Check your inbox and spam folder. It expires in 10 minutes.';setTimeout(()=>{if($('patientCodeSend'))$('patientCodeSend').disabled=false;},60000);}
+  catch(error){$('patientEmailStatus').textContent=error.message;$('patientCodeSend').disabled=false;}
+  finally{if($('bookingEmail'))$('bookingEmail').disabled=false;if($('bookingBack'))$('bookingBack').disabled=false;}
+ };
+ $('patientCodeVerify').onclick=async()=>{
+  if(!draft.verification_id){$('patientEmailStatus').textContent='Request a code first.';return;}
+  const code=$('patientEmailCode').value;if(!/^[0-9]{6}$/.test(code)){$('patientEmailStatus').textContent='Enter the six-digit code from your email.';return;}
+  $('patientCodeVerify').disabled=true;$('bookingEmail').disabled=true;$('bookingBack').disabled=true;
+  try{const result=await bookingApi('email-verify',{verification_id:draft.verification_id,code});draft.verification_token=result.verification_token;$('patientEmailStatus').textContent='Email verified. Submit your request within 15 minutes.';$('bookingSubmit').disabled=false;$('patientEmailCode').value='';}
+  catch(error){$('patientEmailStatus').textContent=error.message;}
+  finally{if($('patientCodeVerify'))$('patientCodeVerify').disabled=false;if($('bookingEmail'))$('bookingEmail').disabled=false;if($('bookingBack'))$('bookingBack').disabled=false;}
+ };
+ $('bookingBack').onclick=()=>{save();bookingSlots(draft,options);};
+ $('bookingContact').onsubmit=async event=>{
+  event.preventDefault();save();if(!draft.verification_token){$('bookingError').textContent='Verify your personal email first.';return;}$('bookingSubmit').disabled=true;$('bookingBack').disabled=true;$('bookingError').textContent='Saving request…';
+  try{const result=await bookingApi('create',draft);$('modal').close();toast('No email sent to clinic (testing mode)');location.hash=`request/${result.id}/${result.tracking_token}`;}
+  catch(error){$('bookingError').textContent=error.message;$('bookingSubmit').disabled=false;$('bookingBack').disabled=false;}
+ };
+}
+function bookingRoute(){
+ const match=String(globalThis.location?.hash||'').match(/^#(request|clinic)\/(MSP-[A-F0-9]{16})\/([A-Za-z0-9_-]{40,60})$/);
+ if(!match){bookingStopPolling();return false;}
+ bookingStopPolling();$('modal').close();
+ const [,kind,id,token]=match;const hash=globalThis.location.hash;
+ $('app').innerHTML='<section class="panel booking-page"><p role="status">Loading request…</p></section>';
+ if(kind==='request'){
+  let lastReceipt='';const refresh=async()=>{try{const data=await bookingApi('patient',{id,token});if(location.hash!==hash)return;const signature=JSON.stringify(data);if(signature!==lastReceipt){bookingReceipt(data,token);lastReceipt=signature;}if(['scheduled','unable','expired'].includes(data.status))bookingStopPolling();}catch(error){if(location.hash===hash)$('app').innerHTML=`<section class="panel"><h1>Request unavailable</h1><p role="alert">${esc(error.message)}</p><a href="/">Back to search</a></section>`;bookingStopPolling();}};
+  refresh();bookingTimer=setInterval(()=>{if(!document.hidden)refresh();},15000);
+ }else{clinicGate(id,token);}
+ return true;
+}
+function bookingReceipt(b,token){
+ $('app').innerHTML=`<section class="panel booking-page"><p class="eyebrow">${esc(b.id)}</p><h1>${esc(BOOKING_STATUS[b.status])}</h1><p class="booking-notice">No email sent to clinic (testing mode). This request does not reserve an appointment.</p>${bookingSummary(b)}<ol class="booking-timeline"><li>Request submitted</li><li>${b.status==='requested'?'Awaiting clinic action (preview only)':esc(BOOKING_STATUS[b.status])}</li><li>The clinic confirms the exact appointment directly with you.</li></ol><h2>Keep your request link</h2><p>Bookmark this page to see updates. Treat the link as private. Status refreshes every 15 seconds while the page is open.</p><div class="actions"><button id="copyBookingLink">Copy request link</button><a href="/">Back to search</a>${b.preview_available?'<button id="previewClinic">Preview clinic workflow</button>':''}</div><p id="bookingActionStatus" role="status"></p><div id="clinicPreviewLink"></div></section>`;
+ $('copyBookingLink').onclick=async()=>{try{await navigator.clipboard.writeText(location.href);$('bookingActionStatus').textContent='Request link copied.';}catch{$('bookingActionStatus').textContent='Bookmark this page or copy the address from your browser.';}};
+ if(b.preview_available)$('previewClinic').onclick=async()=>{
+  try{const preview=await bookingApi('preview',{id:b.id,token});$('clinicPreviewLink').innerHTML=`<p class="booking-notice">Local testing only: the clinic link and code preview do not send email.</p><a class="button primary" href="${esc(preview.clinic_url)}" target="_blank" rel="noopener noreferrer">Open clinic preview</a><details><summary>Preview clinic notification (not sent)</summary><pre class="booking-email">${esc(preview.notification)}</pre></details>`;}catch(error){$('bookingActionStatus').textContent=error.message;}
+ };
+}
+function clinicGate(id,token){
+ $('app').innerHTML=`<section class="panel booking-page"><p class="eyebrow">FOR IMAGING CENTERS · ${esc(id)}</p><h1>Open appointment request</h1><p>Verify a one-time code before viewing patient contact details. Codes expire after 10 minutes and can be used once.</p><p class="booking-notice">Email is disabled. On this local preview, a test code appears here instead of being emailed.</p><button id="clinicCodeSend">Generate preview code</button><p id="clinicCodeStatus" role="status"></p><form id="clinicVerify"><label>Six-digit code<input id="clinicCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label><button class="primary" id="clinicVerifyButton">Open request</button></form><p id="clinicError" role="alert"></p></section>`;
+ $('clinicCodeSend').onclick=async()=>{
+  $('clinicCodeSend').disabled=true;$('clinicError').textContent='';
+  try{const data=await bookingApi('code',{id,token});$('clinicCodeStatus').textContent=data.preview_code?`Preview code: ${data.preview_code}. No email was sent. Expires in 10 minutes. Resend available after 60 seconds.`:'Email delivery is disabled. No code was sent.';setTimeout(()=>{if($('clinicCodeSend'))$('clinicCodeSend').disabled=false;},60000);}
+  catch(error){$('clinicError').textContent=error.message;$('clinicCodeSend').disabled=false;}
+ };
+ $('clinicVerify').onsubmit=async event=>{
+  event.preventDefault();$('clinicVerifyButton').disabled=true;
+  try{const auth=await bookingApi('verify',{id,token,code:$('clinicCode').value});await clinicView(id,token,auth.session);}
+  catch(error){if($('clinicError'))$('clinicError').textContent=error.message;if($('clinicVerifyButton'))$('clinicVerifyButton').disabled=false;}
+ };
+}
+async function clinicView(id,token,session){
+ bookingStopPolling();const b=await bookingApi('details',{id,session});
+ $('app').innerHTML=`<section class="panel booking-page"><p class="eyebrow">FOR IMAGING CENTERS · ${esc(id)}</p><p id="clinicCountdown" role="timer"></p><h1>${esc(b.first_name)}</h1>${bookingSummary(b)}<a class="button primary" href="tel:${esc(b.phone.replace(/[^+0-9]/g,''))}">Call ${esc(b.phone)}</a><h2>After the call</h2><p id="clinicOutcome" role="status">${esc(BOOKING_STATUS[b.status])}</p><div class="booking-outcomes">${[['scheduled','Scheduled'],['voicemail','Left voicemail'],['unable','Can’t accommodate']].map(([v,t])=>`<button data-booking-status="${v}" ${['scheduled','unable','expired'].includes(b.status)?'disabled':''}>${t}</button>`).join('')}</div><p id="clinicError" role="alert"></p><p class="small">The patient can see updates on their request page. Details are deleted 30 days after the request closes. Voicemail keeps it open until the 72-hour link expires.</p><button id="clinicLock">Lock request</button></section>`;
+ const tick=()=>{const left=Math.max(0,Math.ceil(b.expires_at-Date.now()/1000));if(!$('clinicCountdown'))return bookingStopPolling();$('clinicCountdown').textContent=`Session ends in ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}`;if(!left){bookingStopPolling();clinicGate(id,token);}};tick();bookingTimer=setInterval(tick,1000);
+ $('clinicLock').onclick=async()=>{try{await bookingApi('lock',{id,session});bookingStopPolling();clinicGate(id,token);}catch(error){$('clinicError').textContent=error.message;}};
+ document.querySelectorAll('[data-booking-status]').forEach(button=>button.onclick=async()=>{
+  document.querySelectorAll('[data-booking-status]').forEach(b=>b.disabled=true);
+  try{await bookingApi('status',{id,session,status:button.dataset.bookingStatus});await clinicView(id,token,session);}
+  catch(error){$('clinicError').textContent=error.message;document.querySelectorAll('[data-booking-status]').forEach(b=>b.disabled=false);}
+ });
 }
 document.addEventListener('click',event=>{
  const button=event.target.closest?.('[data-appointment]');if(!button)return;
- const center=DIRECTORY.find(e=>e.name===button.dataset.appointment);
- if(center&&appointmentEmail(center))appointmentForm(center);
+ const center=DIRECTORY.find(e=>e.booking_id===button.dataset.appointment)||{booking_id:button.dataset.appointment};
+ if(center)appointmentForm(center,button.dataset.bookingOffer||'');
 });
 async function openBookingTest(){
  if(!account)await signInGuest();
- const {center}=await api('/booking-test');
- if(!center){modal('<h2>Booking test</h2><p>The test center has not been added to this database yet.</p>');return;}
- appointmentForm(center);
+ await loadCatalog();
+ const center=DIRECTORY.find(e=>e.booking_id);
+ if(center)await appointmentForm(center);
+ else modal('<h2>Booking preview</h2><p>No published clinics are available.</p>');
 }

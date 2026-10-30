@@ -4,10 +4,14 @@ import hashlib
 import json
 import secrets
 import time
+import logging
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
+from dotenv import load_dotenv
+load_dotenv()
 import core
+import booking
 from tools.generate_app_config import website_url
 
 # Per-minute limits. Keying by email+IP (not email alone) stops one attacker locking out a member;
@@ -25,6 +29,7 @@ class ServiceUnavailableError(RuntimeError):
 
 
 class Handler(BaseHTTPRequestHandler):
+    booking_preview = True  # Loopback server only; hosted adapter overrides this.
     server_version='MySelfPayPOC'
     cookie_name='selfpay_session'
     def log_message(self,*args): pass  # No searches, transcripts or member details in access logs.
@@ -114,6 +119,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200,json.dumps(manifest).encode(),content_type=mime)
             return self.respond(200,(core.ROOT/'static'/name).read_bytes(),content_type=mime)
         db=self.database_path()
+        if path.startswith('/api/booking/'):
+            return self.booking_request(path,method,db)
         if path=='/api/directory-summary' and method=='GET':return self.respond(200,core.directory_summary(db))
         if path in ('/api/register','/api/login','/api/password'):
             return self.respond(410,{'error':'Use Sign in as guest. Email and password sign-in is disabled.'})
@@ -174,8 +181,50 @@ class Handler(BaseHTTPRequestHandler):
             with core.connect(db) as con:con.execute('INSERT INTO corrections VALUES(?,?,?,?,?,?,?,?,?)',(ident,member['tenant'],member['id'],offer['id'],cat['version'],str(data.get('category','Other'))[:80],description,time.time(),'pending review'))
             return self.respond(201,{'id':ident,'status':'pending review'})
         return self.respond(404,{'error':'Not found'})
+    def booking_request(self,path,method,db):
+        if method != 'POST':return self.respond(405,{'error':'Use POST'})
+        data=self.payload()
+        action=path.removeprefix('/api/booking/')
+        if not self.login_allowed('booking-ip:'+self.client_ip(),60):
+            return self.respond(429,{'error':'Too many requests. Please wait a minute.'})
+        if action in ('options','create','email-code','email-verify'):
+            member=core.session(self.token(),db)
+            if not member:return self.respond(401,{'error':'Start a guest session first.'})
+            if not secrets.compare_digest(self.request_header('X-CSRF-Token',''),member['csrf']):
+                return self.respond(403,{'error':'CSRF token required'})
+            if action=='email-code':
+                if not self.login_allowed('booking-email:'+self.client_ip(),3):
+                    return self.respond(429,{'error':'Too many email requests. Please wait a minute.'})
+                return self.respond(200,booking.request_patient_code(db,member['id'],data.get('email')))
+            if action=='email-verify':
+                return self.respond(200,booking.verify_patient_code(db,member['id'],data.get('verification_id'),data.get('code')))
+            if action=='options':
+                return self.respond(200,booking.options(db,str(data.get('clinic_id','')),str(data.get('offer_id',''))))
+            if not self.login_allowed('booking-create:'+self.client_ip(),5):
+                return self.respond(429,{'error':'Request limit reached. Please wait a minute.'})
+            base=(f'http://127.0.0.1:{self.server.server_port}' if self.booking_preview else website_url(core.ROOT).rstrip('/'))
+            result=booking.create(db,member['id'],data,base)
+            result['preview_available']=self.booking_preview
+            return self.respond(201,result)
+        ident=str(data.get('id',''))
+        if action=='patient':
+            result=booking.patient(db,ident,data.get('token',''))
+            result['preview_available']=self.booking_preview
+        elif action=='preview' and self.booking_preview:
+            result=booking.patient(db,ident,data.get('token',''),preview=True)
+        elif action=='code':
+            result=booking.issue_code(db,ident,data.get('token',''),preview=self.booking_preview)
+        elif action=='verify':result=booking.verify_code(db,ident,data.get('token',''),data.get('code',''))
+        elif action=='details':result=booking.clinic_details(db,ident,data.get('session',''))
+        elif action=='status':result=booking.clinic_details(db,ident,data.get('session',''),data.get('status',''))
+        elif action=='lock':result=booking.lock_session(db,ident,data.get('session',''))
+        else:return self.respond(404,{'error':'Not found'})
+        return self.respond(200,result)
+
     def dispatch(self,method):
         try:self.route_selfpay_request(method)
+        except booking.BookingError as exc:
+            self.respond(exc.status,{'error':str(exc)})
         except ServiceUnavailableError as exc:
             self.respond(503,{'error':str(exc),'code':'service_not_configured'})
         except core.GuestAgentLimited as exc:
@@ -193,13 +242,28 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):self.dispatch('POST')
     def do_DELETE(self):self.dispatch('DELETE')
 
+class LocalServer(ThreadingHTTPServer):
+    last_booking_cleanup = 0.0
+
+    def service_actions(self):
+        # Local SQLite housekeeping only. Hosted cleanup requires an approved job.
+        now = time.monotonic()
+        if now - self.last_booking_cleanup >= 3600:
+            self.last_booking_cleanup = now
+            if not str(self.db_path).startswith(('postgres://','postgresql://')):
+                try:booking.cleanup(self.db_path)
+                except Exception:logging.error('Booking retention cleanup failed; retry in one hour.')
+
+
 def make_server(port=8765,path=core.DB):
     core.initialize(path)
+    booking.initialize_local(path)
+    if not str(path).startswith(('postgres://','postgresql://')):booking.cleanup(path)
     with core.connect(path) as db:active=core.active_batch(db)
     if not active:
         batch=core.stage_import(core.ROOT/'seed/directory.json',core.ROOT/'seed/mappings.json',path)
         core.publish(batch['id'],path)
-    server=ThreadingHTTPServer(('127.0.0.1',port),Handler)
+    server=LocalServer(('127.0.0.1',port),Handler)
     server.db_path=path;server.login_attempts=[]
     return server
 

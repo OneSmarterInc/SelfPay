@@ -1,4 +1,9 @@
-# Appointment requests through the user’s email app
+# Legacy email-app flow (superseded)
+
+The booking request implementation replaces the mailto draft described below.
+See [booking-flow.md](booking-flow.md) for the current preview, security controls,
+retention and future delivery prerequisites. The historical notes below are not
+instructions for the current flow.
 
 No SMTP service, account registration, email verification, or booking schema migration. Clicking Book appointment opens a local form. Submission opens a mailto draft. The user must press Send in their email app. MySelfPay cannot detect sending or delivery, or reserve appointments. An email app must be configured; copyable recipient/subject/body remain on screen if it is not.
 

@@ -20,11 +20,20 @@ def canonical(value):
 def digest(value):
     return hashlib.sha256(canonical(value).encode()).hexdigest()
 
+class SQLiteConnection(sqlite3.Connection):
+    """Match the Postgres adapter: commit/rollback and release on context exit."""
+    def __exit__(self, kind, value, traceback):
+        try:
+            return super().__exit__(kind, value, traceback)
+        finally:
+            self.close()
+
+
 def connect(path=DB):
     if str(path).startswith(('postgres://','postgresql://')):
         from postgres_store import PostgresConnection
         return PostgresConnection(str(path))
-    con = sqlite3.connect(path, timeout=10)
+    con = sqlite3.connect(path, timeout=10, factory=SQLiteConnection)
     con.row_factory = sqlite3.Row
     con.execute('PRAGMA foreign_keys=ON')
     return con
@@ -179,7 +188,7 @@ def directory_summary(path=DB):
 def catalog(path=DB):
     with connect(path) as db:
         batch=active_batch(db)
-        entries={r['entry_key']:json.loads(r['payload']) for r in db.execute('SELECT * FROM entries WHERE batch_id=?',(batch,))}
+        entries={r['entry_key']:{**json.loads(r['payload']), 'booking_id': r['entry_key']} for r in db.execute('SELECT * FROM entries WHERE batch_id=?',(batch,))}
         offers=[]
         for r in db.execute('SELECT * FROM offers WHERE batch_id=?',(batch,)):
             o=json.loads(r['payload']);o['entry']=entries[r['entry_key']];o['version']=batch

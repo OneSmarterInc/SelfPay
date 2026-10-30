@@ -65,7 +65,7 @@ function coverageSummary(showPublished=false){
   }
   return `<section class="panel"><p><strong>${DIRECTORY.length.toLocaleString()}</strong> imaging facilities and programs listed so far.</p></section>`;
 }
-function initialSearch(){const q=state.location.trim().toLowerCase();const leads=q&&!/^\d/.test(q)?DIRECTORY.filter(d=>d.area.toLowerCase().includes(q)||d.states.toLowerCase()===q):[];return `<div class="panel"><h2>${state.location?'Browse imaging centers in your state':'Where would you like to search?'}</h2><p>${state.mod&&state.body.trim()?'Your exam details are ready. Enter a city or state to find options.':'Select your state to browse imaging centers. All other filters are optional.'}</p><p class="small">Directory loaded: ${DIRECTORY.length} researched entries · ${offers.length} mapped price offers. Entries can represent facilities, branches or programs; coverage is limited.</p><div class="actions"><button id="sampleSearch">Try sample: knee MRI in Cincinnati</button><button id="browseDirectory">Browse all directory entries</button></div><p class="small">The sample is a demonstration search, not a recommendation for a medical test.</p><p class="small">Search by city or ZIP for approximate straight-line distances to imported facility locations.</p>${leads.length?'<h3>Directory locations in your search area</h3><p class="small">Entries may cover multiple locations. Service availability and exact addresses require confirmation.</p>'+leads.map(d=>`<div class="lead"><strong>${esc(d.name)}</strong><p>${esc(d.area)}</p><a href="${esc(d.source)}" target="_blank" rel="noopener noreferrer">Check provider locations</a></div>`).join(''):''}</div>`}
+function initialSearch(){const q=state.location.trim().toLowerCase();const leads=q&&!/^\d/.test(q)?DIRECTORY.filter(d=>d.area.toLowerCase().includes(q)||d.states.toLowerCase()===q):[];return `<div class="panel"><h2>${state.location?'Browse imaging centers in your state':'Where would you like to search?'}</h2><p>${state.mod&&state.body.trim()?'Your exam details are ready. Enter a city or state to find options.':'Select your state to browse imaging centers. All other filters are optional.'}</p><p class="small" id="catalogStatus" role="status">${esc(catalogStatus())}</p><div class="actions"><button id="sampleSearch">Try sample: knee MRI in Cincinnati</button><button id="browseDirectory">Browse all directory entries</button></div><p class="small">The sample is a demonstration search, not a recommendation for a medical test.</p><p class="small">Search by city or ZIP for approximate straight-line distances to imported facility locations.</p>${leads.length?'<h3>Directory locations in your search area</h3><p class="small">Entries may cover multiple locations. Service availability and exact addresses require confirmation.</p>'+leads.map(d=>`<div class="lead"><strong>${esc(d.name)}</strong><p>${esc(d.area)}</p><a href="${esc(d.source)}" target="_blank" rel="noopener noreferrer">Check provider locations</a></div>`).join(''):''}</div>`}
 function groupedCards(found){return (state.resultsHeading?`<h2>${esc(state.resultsHeading)}</h2>`:'')+found.map(card).join('')+((state.programs?.length||state.programEntries?.length)?`<h2>${esc(state.programHeading)}</h2>`+state.programs.map(card).join('')+(state.programEntries||[]).map(e=>`<article class="card"><h3>${esc(e.name)}</h3><p>Confirm service availability and request a quote.</p>${contactActions({entry:e})||`<a href="${esc(e.source)}" target="_blank" rel="noopener noreferrer">Program website</a>`}</article>`).join(''):'')+(state.nearbyUnpriced?.length?'<h2>Facilities to contact for a quote</h2><p>Confirm the ordered exam, eligibility and total directly with the facility.</p>'+state.nearbyUnpriced.map(e=>`<article class="card"><h3>${esc(e.name)}</h3><p>${esc(distanceLabel(e))}</p><strong>Call for a self-pay price</strong>${contactActions({entry:e})}</article>`).join(''):'')}
 
 function request(o){const ph=phoneOf(o.entry),exam=[state.body,o.mod].filter(Boolean).join(' ')||o.mod;modal(`<h2>Ask for a self-pay price</h2><p>${esc(o.entry.name)}</p>${ph?`<p class="card-actions">${telLink(ph,'call','Call '+ph)}</p>`:'<p>Use the facility website to reach them.</p>'}<p>When you call, say you are paying yourself and ask for the all-in price for your ${esc(exam)}${state.contrast&&state.contrast!=='unknown'?` (${esc(contrastLabel(state.contrast).toLowerCase())})`:''}. Have your doctor’s order nearby.</p><h3>Questions to ask</h3><ul class="checklist">${questions(o).map(q=>`<li>${esc(q)}</li>`).join('')}</ul><p class="small muted">Published reference: ${price(o)} · ${typeLabel(o)}</p>`)}
@@ -105,7 +105,30 @@ async function api(path,data,method){
   return body;
 }
 function safe(fn){return (...args)=>Promise.resolve().then(()=>fn(...args)).catch(e=>toast(e.message))}
-async function loadCatalog(){catalogReady=false;const data=await api('/catalog');if(!Array.isArray(data.entries)||!Array.isArray(data.offers)||!data.version)throw new Error('Provider directory is not published yet. Contact the review administrator.');DIRECTORY=data.entries;offers=data.offers;if(Array.isArray(data.locations))cityLabels=data.locations;currentVersion=data.version;catalogReady=true}
+let catalogTask=null,catalogError='';
+function catalogStatus(){return catalogReady?`Directory loaded: ${DIRECTORY.length} researched entries · ${offers.length} mapped price offers. Entries can represent facilities, branches or programs; coverage is limited.`:catalogError?'The full directory is temporarily unavailable. You can still search; choose Browse all directory entries to retry.':'The full directory is loading. You can search now using your city, state or ZIP.'}
+function updateCatalogStatus(){const target=$('catalogStatus');if(target)target.textContent=catalogStatus()}
+function loadCatalog(){
+  if(catalogTask?.epoch===epoch)return catalogTask.promise;
+  const started=epoch;catalogError='';
+  const task={epoch:started};
+  task.promise=(async()=>{
+    try{
+      const data=await api('/catalog');
+      if(started!==epoch)return;
+      if(!Array.isArray(data.entries)||!Array.isArray(data.offers)||!data.version)throw new Error('Provider directory is not published yet. Contact the review administrator.');
+      DIRECTORY=data.entries;
+      // Search responses can arrive first. Preserve their offers and version.
+      const byId=new Map(data.offers.map(o=>[o.id,o]));
+      [...results,...(state.programs||[])].forEach(o=>byId.set(o.id,o));offers=[...byId.values()];
+      if(Array.isArray(data.locations))cityLabels=data.locations;
+      if(!currentVersion)currentVersion=data.version;
+      catalogReady=true;
+    }catch(error){if(started===epoch)catalogError=error.message;throw error}
+    finally{if(catalogTask===task)catalogTask=null;if(started===epoch)updateCatalogStatus()}
+  })();
+  catalogTask=task;return task.promise;
+}
 function loadFailure(error){pageTop('load-error');$('app').innerHTML=`<section class="panel"><h1>Unable to load your review session</h1><p role="alert">${esc(error.message)}</p><p>Your search history has not been deleted. Retry to load the provider directory from the database.</p><button id="retrySession" class="primary">Retry loading</button></section>`;$('retrySession').onclick=()=>start().catch(loadFailure)}
 
 async function loadResults(){const started=epoch;const data=await api('/search',state);if(started!==epoch)return null;results=data.offers;state.locationSuggestions=data.location_suggestions||[];state.locationUnresolved=data.resolved_location===null&&!!data.search.location&&data.search.location.toLowerCase()!=='national';state.locationNotice=data.location_notice||'';state.unlocatedOfferCount=data.unlocated_offer_count||0;state.programs=data.programs||[];state.programEntries=data.program_entries||[];state.nearbyUnpriced=data.nearby_unpriced||[];state.noExamPrice=!!data.no_exam_price;state.resultsHeading=data.results_heading||'';state.programHeading=data.program_heading||'';state.dirty=false;currentVersion=data.version;Object.assign(state,data.search);const byId=new Map(offers.map(o=>[o.id,o]));[...results,...state.programs].forEach(o=>byId.set(o.id,o));offers=[...byId.values()];return data}
@@ -123,7 +146,7 @@ function bind(){
   document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>detail(b.dataset.detail));
   if($('compare'))$('compare').onclick=compare;
   if($('clearCompare'))$('clearCompare').onclick=safe(async()=>{state.selected=[];render();await save()});
-  if($('leads'))$('leads').onclick=directory;
+  if($('leads'))$('leads').onclick=safe(async()=>{if(!catalogReady)await loadCatalog();directory()});
   if($('voice'))$('voice').onclick=voice;
   const showDirty=()=>{if($('searchNotice'))$('searchNotice').textContent=state.dirty?'Search changed—click Find options to update results. Displayed results belong to your previous search.':(/^Distances are approximate straight-line miles\b/.test(state.locationNotice||'')?'':(state.locationNotice||''));document.querySelectorAll('[data-select],[data-detail],#compare').forEach(b=>b.disabled=!!state.dirty)};
   showDirty();
@@ -227,12 +250,11 @@ function welcome(){updateNavigation();pageTop('welcome');
 }
 async function enterJourney(kind){
   if(!account){await signInGuest(kind);return}
-  if(!catalogReady){try{await start()}catch(e){loadFailure(e);return}}
   state.mode=kind==='agent'?'agent':'classic';render();
   if(kind==='scan')scan();else if(kind==='explore')explore();
 }
 function loginScreen(){welcome()}
-async function start(){updateNavigation();epoch++;results=[];state=defaults();state.member=`${account.tenant} / ${account.name}`;const loaded=await Promise.allSettled([loadCatalog(),api('/guest-usage')]);const failed=loaded.find(result=>result.status==='rejected');if(failed)throw failed.reason;state.usage=loaded[1].value.usage||{};state.conversationId=Object.keys(state.usage).at(-1)||null;state.location='';welcome()}
+async function start(){updateNavigation();epoch++;results=[];state=defaults();state.member=`${account.tenant} / ${account.name}`;catalogReady=false;catalogError='';DIRECTORY=[];offers=[];currentVersion='';void loadCatalog().catch(()=>{});state.usage=(await api('/guest-usage')).usage||{};state.conversationId=Object.keys(state.usage).at(-1)||null;state.location='';welcome()}
 $('brandHome').onclick=e=>{if(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;e.preventDefault();if(globalThis.location?.hash)globalThis.history?.replaceState?.(null,'',globalThis.location.pathname);pendingEntry=null;welcome();globalThis.scrollTo?.({top:0,left:0,behavior:'instant'})};
 $('history').onclick=safe(async()=>{if(!account)return loginScreen();await history()});
 $('directory').onclick=safe(async()=>{if(!account)return loginScreen();await loadCatalog();directory()});
@@ -247,7 +269,7 @@ const PAGES={
 };
 function infoPage(key){const page=PAGES[key];if(!page)return false;updateNavigation();pageTop('page:'+key);document.title=`${page.title} · MySelfPay`;$('app').innerHTML=`<article class="panel info-page"><h1>${esc(page.title)}</h1>${page.body()}<p class="actions"><a href="/">Back to MySelfPay</a></p></article>`;return true}
 function routeHash(){if(globalThis.location?.hash==='#booking-test'){openBookingTest().catch(e=>toast(e.message));return true;}const legacy=String(globalThis.location?.hash||'').slice(1);const destinations={privacy:'/privacy-terms',terms:'/privacy-terms',contact:'/contact','for-imaging-centers':'/for-imaging-centers'};if(destinations[legacy]){globalThis.location.replace(destinations[legacy]);return true;}const key=decodeURIComponent(String(globalThis.location?.hash||'').slice(1));if(PAGES[key])return infoPage(key);document.title='MySelfPay · Find self-pay MRI and CT';return false}
-globalThis.addEventListener?.('hashchange',()=>{if(!routeHash()){if(account&&catalogReady)render();else welcome()}});
+globalThis.addEventListener?.('hashchange',()=>{if(!routeHash()){if(account)render();else welcome()}});
 const bootReady=(async()=>{try{const r=await api('/me');account=r.member;csrf=r.csrf;await start()}catch(e){if(account)loadFailure(e);else welcome()}})();
 bootReady.then(()=>routeHash());
 

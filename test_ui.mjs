@@ -105,8 +105,9 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   assert.equal(saveAttempts,0);
   limitReached=false;failCatalog=true;
   await vm.runInContext('start().catch(loadFailure)',ctx);
-  assert.match(node('app').innerHTML,/Unable to load your review session/);
-  assert.match(node('app').innerHTML,/Retry loading/);
+  await vm.runInContext('enterJourney("search")',ctx);
+  assert.match(node('app').innerHTML,/Where would you like to search/);
+  assert.match(node('app').innerHTML,/full directory is temporarily unavailable/);
   failCatalog=false;
   await vm.runInContext('start()',ctx);
   assert.match(node('app').innerHTML,/How would you like to begin/);
@@ -199,13 +200,25 @@ ctx.fetch=async(url,options)=>{
 const signingIn=vm.runInContext('signInGuest("agent")',ctx);
 assert.match(node('app').innerHTML,/Starting your guest session/);
 assert.equal(node('profile').disabled,true);
+await vm.runInContext('signInGuest()',ctx);
 for(let i=0;i<20;i++)await Promise.resolve();
 assert.ok(requested.includes('/api/catalog'));
 assert.ok(requested.includes('/api/guest-usage'),'Usage must not wait for catalog completion');
-await vm.runInContext('signInGuest()',ctx);
 assert.equal(requested.filter(url=>url==='/api/guest').length,1);
-releaseCatalog();
 await signingIn;
+assert.equal(vm.runInContext('catalogReady',ctx),false);
+assert.match(node('app').innerHTML,/You can search now/);
+vm.runInContext("state.mod='MRI';state.body='Knee';state.location='Cincinnati';state.contrast='without'",ctx);
+await vm.runInContext('search()',ctx);
+assert.equal(vm.runInContext('results.length',ctx),2);
+vm.runInContext('detail(results[0].id)',ctx);
+assert.match(node('app').innerHTML,/Questions to ask the facility/);
+const screenBeforeCatalog=node('app').innerHTML;
+node('location').value='Unsaved typed location';
+releaseCatalog();
+await vm.runInContext('catalogTask.promise',ctx);
+assert.equal(node('app').innerHTML,screenBeforeCatalog);
+assert.equal(node('location').value,'Unsaved typed location');
 assert.equal(node('profile').disabled,false);
 assert.equal(vm.runInContext('state.mode',ctx),'agent');
 ctx.fetch=async(url,options)=>url==='/api/guest'
@@ -216,3 +229,22 @@ assert.equal(node('profile').disabled,false);
 assert.match(node('app').innerHTML,/Find self-pay MRI and CT near you/);
 ctx.fetch=originalFetch;
 console.log('Concurrent guest startup, progress, duplicate-click and failure checks passed.');
+
+ctx.fetch=async(url,options)=>{
+  if(url==='/api/catalog'){
+    await new Promise(resolve=>{releaseCatalog=resolve});
+    return {ok:true,status:200,json:async()=>({entries,offers,version:'old-session'})};
+  }
+  return originalFetch(url,options);
+};
+await vm.runInContext('start()',ctx);
+const oldCatalog=vm.runInContext('catalogTask.promise',ctx);
+assert.equal(vm.runInContext('loadCatalog()',ctx),oldCatalog,'Concurrent catalog consumers share one request');
+await vm.runInContext('signOut()',ctx);
+releaseCatalog();
+await oldCatalog;
+assert.equal(vm.runInContext('catalogReady',ctx),false);
+assert.equal(vm.runInContext('DIRECTORY.length',ctx),0);
+assert.equal(vm.runInContext('offers.length',ctx),0);
+ctx.fetch=originalFetch;
+console.log('Late catalog responses cannot repopulate a signed-out session.');

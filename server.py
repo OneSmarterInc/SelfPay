@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import core
 import booking
+import accounts
 from tools.generate_app_config import website_url
 
 # Per-minute limits. Keying by email+IP (not email alone) stops one attacker locking out a member;
@@ -122,8 +123,18 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith('/api/booking/'):
             return self.booking_request(path,method,db)
         if path=='/api/directory-summary' and method=='GET':return self.respond(200,core.directory_summary(db))
-        if path in ('/api/register','/api/login','/api/password'):
-            return self.respond(410,{'error':'Use Sign in as guest. Email and password sign-in is disabled.'})
+        if path in ('/api/register','/api/login'):
+            if method != 'POST':return self.respond(405,{'error':'Use POST'})
+            # Require explicit same-origin browser intent even before a session exists.
+            if not self.request_header('Origin'):return self.respond(403,{'error':'Origin required'})
+            existing=core.session(self.token(),db)
+            if existing and not secrets.compare_digest(self.request_header('X-CSRF-Token',''),existing['csrf']):
+                return self.respond(403,{'error':'CSRF token required'})
+            result=accounts.authenticate(db,self.payload(),path.rsplit('/',1)[1],self.client_ip(),self.token())
+            token=result.pop('token')
+            return self.respond(201 if path=='/api/register' else 200,result,cookie=self.session_cookie(token))
+        if path=='/api/password':
+            return self.respond(410,{'error':'Password recovery is not available yet.'})
         if path=='/api/guest' and method=='POST':
             if not self.all_allowed(('guest_ip','guest-ip:'+self.client_ip())):return self.respond(429,{'error':'Too many requests. Wait one minute.'})
             self.payload()
@@ -157,7 +168,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200,core.guest_agent(self.token(),self.client_ip(),data.get('message'),data.get('search',{}),data.get('conversation_id'),(GUEST_CONVERSATIONS,GUEST_MESSAGES,GUEST_MESSAGE_CHARACTERS,GUEST_AGENT_PER_IP_HOUR,GUEST_AGENT_GLOBAL_DAY),db))
             return self.respond(200,core.agent(data.get('message'),data.get('search',{}),db))
         if member['tenant']=='guest' and (path=='/api/corrections' or (path.startswith('/api/conversations') and method!='GET')):
-            return self.respond(403,{'error':'Guest content is not stored. Full access is coming with MySelfPay accounts.'})
+            return self.respond(403,{'error':'Guest content is not stored. Log in to use account features.'})
         if path=='/api/conversations':
             if method=='GET':return self.respond(200,{'conversations':core.history(member,db)})
             if method=='POST':return self.respond(200,core.save_conversation(member,self.payload(),db))
@@ -223,6 +234,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def dispatch(self,method):
         try:self.route_selfpay_request(method)
+        except accounts.AccountError as exc:
+            self.respond(exc.status,{'error':str(exc)})
         except booking.BookingError as exc:
             self.respond(exc.status,{'error':str(exc)})
         except ServiceUnavailableError as exc:

@@ -1,5 +1,5 @@
 """Small adapter for the app's fixed SQL statements; values always remain parameters."""
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 def uses_pooler(url):
     host=urlparse(url).hostname or ''
@@ -11,7 +11,14 @@ class PostgresConnection:
         # Serverless functions open a connection per call, so DATABASE_URL must be Neon's pooled (-pooler)
         # endpoint. Server-side prepared statements are disabled because a transaction pooler can hand the
         # next statement to a different backend connection.
-        self.connection=psycopg.connect(url,row_factory=dict_row,connect_timeout=10,sslmode='require',prepare_threshold=None)
+        parsed = urlparse(url)
+        mode = parse_qs(parsed.query).get('sslmode', ['require'])[-1]
+        # Explicit opt-out only for PostgreSQL on the same machine, never remote hosts.
+        if mode in ('disable','allow','prefer') and parsed.hostname not in ('localhost','127.0.0.1','::1'):
+            raise ValueError('Remote PostgreSQL connections require TLS.')
+        if mode not in ('disable','require','verify-ca','verify-full'):
+            raise ValueError('Use require/verify-full, or disable for loopback PostgreSQL only.')
+        self.connection=psycopg.connect(url,row_factory=dict_row,connect_timeout=10,sslmode=mode,prepare_threshold=None)
     def __enter__(self):return self
     def __exit__(self,kind,value,tb):
         try:

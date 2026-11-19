@@ -115,13 +115,13 @@ const ctx=vm.createContext({console,fetch,crypto:globalThis.crypto,Date,setTimeo
   storedUsage={};
   await vm.runInContext('api("/logout",{})',ctx);
   const rejected=await vm.runInContext('api("/catalog").then(()=>false).catch(()=>true)',ctx);assert.equal(rejected,true);
-  assert.equal(node('profile').textContent,'Sign in as guest');
+  assert.equal(node('profile').hidden,true);
   assert.equal(node('history').hidden,true);
   assert.doesNotMatch(node('app').innerHTML,/loginForm|Create an account/);
   await vm.runInContext('signInGuest("agent")',ctx);
   assert.equal(vm.runInContext('state.mode',ctx),'agent');
   await vm.runInContext('signOut()',ctx);
-  assert.equal(node('profile').textContent,'Sign in as guest');
+  assert.equal(node('profile').hidden,true);
   assert.equal(vm.runInContext('account',ctx),null);
   console.log('Client workflow checks, including guest privacy, quotas and catalog failure recovery, passed with stub transport. No browser visual QA.');
 }
@@ -271,7 +271,7 @@ assert.doesNotMatch(vm.runInContext('guestChatControls()',ctx),/Guest preview:/)
 ctx.fetch=originalFetch;
 await vm.runInContext('signOut()',ctx);
 assert.equal(node('accountLogin').hidden,false);
-assert.equal(node('profile').textContent,'Sign in as guest');
+assert.equal(node('profile').hidden,true);
 console.log('Account form validation, login/logout, guest entry and private-state checks passed.');
 
 // Browser-history adapter: exercise refresh, Back/Forward and private snapshots.
